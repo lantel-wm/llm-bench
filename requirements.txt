@@ -1,0 +1,2 @@
+vllm @ https://github.com/vllm-project/vllm/releases/download/v0.4.3/vllm-0.4.3+cu118-cp39-cp39-manylinux1_x86_64.whl#sha256=39b13b98d6000a64aec941d587523b97f1b0ebf7a2a08465858abb5327072f79
+
