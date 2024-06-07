@@ -43,10 +43,6 @@ if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
   exit 1
 fi
 
-
-
-exit 0
-
 # 安装不同版本的vllm
 case $PARAM in
   "11")
