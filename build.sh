@@ -50,7 +50,7 @@ case $PARAM in
     echo "[INFO] Installing vllm==0.4.2 for CUDA 11..."
     # pip install -r requirements_vllm042.txt
     pip install https://github.com/vllm-project/vllm/releases/download/v0.4.2/vllm-0.4.2+cu118-cp39-cp39-manylinux1_x86_64.whl --extra-index-url https://download.pytorch.org/whl/cu118 
-    pip install flash_attn
+    pip install flash_attn==2.5.8
     ;;
   "12")
     BENCHMARK_LLM="$SCRIPT_DIR/python/benchmark_latency.py"
