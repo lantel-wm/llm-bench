@@ -15,4 +15,4 @@ model = models.data[0].id
 
 completion = client.completions.create(model="/mnt/llm2/llm_perf/hf_models/llama-7b-hf",
                                       prompt="San Francisco is a")
-print("Completion result:", completion.choices[0].text)
+print("Completion result:", completion)

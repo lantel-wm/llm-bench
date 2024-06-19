@@ -49,7 +49,7 @@ CMD="python ${BENCHMARK_LLM} \
 --input-len $IN_LEN \
 --output-len $OUT_LEN \
 --batch-size $BATCH \
---enforce-eager
+--enforce-eager \
 $BENCHMARK_EXTENDED_OPTIONS"
 
 echo "BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} BATCH${BATCH} I${IN_LEN}O${OUT_LEN} -> $CMD"
