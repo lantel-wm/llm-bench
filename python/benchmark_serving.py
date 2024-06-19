@@ -20,6 +20,8 @@ On the client side, run:
 """
 import argparse
 import asyncio
+import threading
+import multiprocessing
 import json
 import os
 import random
@@ -240,6 +242,7 @@ async def benchmark(
     use_beam_search: bool,
     request_rate: float,
     disable_tqdm: bool,
+    thread_id: int = 0,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
@@ -252,8 +255,12 @@ async def benchmark(
 
     benchmark_start_time = time.perf_counter()
     tasks = []
+    ireq = 0
     async for request in get_request(input_requests, request_rate):
         prompt, prompt_len, output_len = request
+        ireq += 1
+        if ireq == 2:
+            print(f"Thread {thread_id} Request {ireq}: {prompt}")
         request_func_input = RequestFuncInput(
             model=model_id,
             prompt=prompt,
@@ -332,10 +339,61 @@ async def benchmark(
     return result
 
 
+class benchThread(threading.Thread):
+    def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
+                 best_of, use_beam_search, request_rate, disable_tqdm):
+        super(benchThread, self).__init__()
+        self.thread_id = thread_id
+        self.ramp_up_time = ramp_up_time
+        self.backend = backend
+        self.api_url = api_url
+        self.model_id = model_id
+        self.tokenizer = tokenizer
+        self.input_requests = input_requests
+        self.best_of = best_of
+        self.use_beam_search = use_beam_search
+        self.request_rate = request_rate
+        self.disable_tqdm = disable_tqdm
+        
+    def run(self):
+        time.sleep(self.ramp_up_time)
+        return asyncio.run(
+            benchmark(
+                backend=self.backend,
+                api_url=self.api_url,
+                model_id=self.model_id,
+                tokenizer=self.tokenizer,
+                input_requests=self.input_requests,
+                best_of=self.best_of,
+                use_beam_search=self.use_beam_search,
+                request_rate=self.request_rate,
+                disable_tqdm=self.disable_tqdm,
+                thread_id=self.thread_id,
+            ))
+
+def run_benchmark_async(backend, api_url, model_id, tokenizer, input_requests, best_of, use_beam_search, request_rate, disable_tqdm):
+    result = asyncio.run(
+        benchmark(
+            backend=backend,
+            api_url=api_url,
+            model_id=model_id,
+            tokenizer=tokenizer,
+            input_requests=input_requests,
+            best_of=best_of,
+            use_beam_search=use_beam_search,
+            request_rate=request_rate,
+            disable_tqdm=disable_tqdm,
+        ))
+    
+    return result
+
 def main(args: argparse.Namespace):
     print(args)
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    assert args.thread_num > 0, "Number of threads must be greater than 0."
+    
+    if args.seed is not None:
+        random.seed(args.seed)
+        np.random.seed(args.seed)
 
     backend = args.backend
     model_id = args.model
@@ -363,12 +421,21 @@ def main(args: argparse.Namespace):
         )
 
     elif args.dataset_name == "sharegpt":
-        input_requests = sample_sharegpt_requests(
-            dataset_path=args.dataset_path,
-            num_requests=args.num_prompts,
-            tokenizer=tokenizer,
-            fixed_output_len=args.sharegpt_output_len,
-        )
+        if args.thread_num == 1:
+            input_requests = sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            )
+        else:
+            input_requests = [sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            ) for _ in range(args.thread_num)]
+            
 
     elif args.dataset_name == "sonnet":
         # Do not format the prompt, pass to message directly
@@ -403,18 +470,38 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError(f"Unknown dataset: {args.dataset_name}")
 
-    benchmark_result = asyncio.run(
-        benchmark(
-            backend=backend,
-            api_url=api_url,
-            model_id=model_id,
-            tokenizer=tokenizer,
-            input_requests=input_requests,
-            best_of=args.best_of,
-            use_beam_search=args.use_beam_search,
-            request_rate=args.request_rate,
-            disable_tqdm=args.disable_tqdm,
-        ))
+    if args.thread_num == 1:
+        benchmark_result = asyncio.run(
+            benchmark(
+                backend=backend,
+                api_url=api_url,
+                model_id=model_id,
+                tokenizer=tokenizer,
+                input_requests=input_requests,
+                best_of=args.best_of,
+                use_beam_search=args.use_beam_search,
+                request_rate=args.request_rate,
+                disable_tqdm=args.disable_tqdm,
+            ))
+    else:
+        threads = []
+        for i in range(args.thread_num):
+            thread = benchThread(i, i * args.ramp_up_time / args.thread_num, backend, api_url, model_id, tokenizer, input_requests[i],
+                                 args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
+            thread.start()
+            threads.append(thread)
+            
+        benchmark_result = {}
+        for thread in threads:
+            result = thread.join()
+            for key, value in result.items():
+                if key in benchmark_result:
+                    benchmark_result[key] += value
+                else:
+                    benchmark_result[key] = value
+                
+        print(json.dumps(benchmark_result, indent=4))
+        
 
     # Save config and results to json
     if args.save_result:
@@ -560,7 +647,7 @@ if __name__ == "__main__":
         "Otherwise, we use Poisson process to synthesize "
         "the request arrival times.",
     )
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",
@@ -590,6 +677,18 @@ if __name__ == "__main__":
         default=None,
         help="Specify directory to save benchmark json results."
         "If not specified, results are saved in the current directory.",
+    )
+    parser.add_argument(
+        "--thread-num",
+        type=int,
+        default=1,
+        help="Number of threads to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--ramp-up-time",
+        type=float,
+        default=0,
+        help="Ramp up time in seconds for each thread.",
     )
 
     args = parser.parse_args()
