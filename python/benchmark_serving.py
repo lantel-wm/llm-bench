@@ -32,8 +32,8 @@ from datetime import datetime
 from typing import AsyncGenerator, List, Optional, Tuple
 
 import numpy as np
-from backend_request_func import (ASYNC_REQUEST_FUNCS, RequestFuncInput,
-                                  RequestFuncOutput)
+from backend_request_func import (ASYNC_REQUEST_FUNCS, REQUEST_FUNCS,
+                                  RequestFuncInput, RequestFuncOutput)
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 
@@ -172,7 +172,7 @@ def sample_sonnet_requests(
     return sampled_requests
 
 
-async def get_request(
+async def get_request_async(
     input_requests: List[Tuple[str, int, int]],
     request_rate: float,
 ) -> AsyncGenerator[Tuple[str, int, int], None]:
@@ -187,6 +187,23 @@ async def get_request(
         interval = np.random.exponential(1.0 / request_rate)
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
+        
+
+def get_request(
+    input_requests: List[Tuple[str, int, int]],
+    request_rate: float,
+):
+    input_requests = iter(input_requests)
+    for request in input_requests:
+        yield request
+
+        if request_rate == float("inf"):
+            # If the request rate is infinity, then we don't need to wait.
+            continue
+        # Sample the request interval from the exponential distribution.
+        interval = np.random.exponential(1.0 / request_rate)
+        # The next request will be sent after the interval.
+        time.sleep(interval)
 
 
 def calculate_metrics(
@@ -201,6 +218,8 @@ def calculate_metrics(
     tpots = []
     ttfts = []
     for i in range(len(outputs)):
+        # print("outputs[i].success: ", outputs[i].success)
+        # print("outputs[i].error: ", outputs[i].error)
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
@@ -208,10 +227,15 @@ def calculate_metrics(
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
+            print(f"outputs[i].latency: ", outputs[i].latency)
+            print(f"outputs[i].ttft: ", outputs[i].ttft)
             ttfts.append(outputs[i].ttft)
             completed += 1
         else:
+            # print(f"Error: {outputs[i].error}")
             actual_output_lens.append(0)
+            
+    print(f"tpots: {tpots}")
 
     metrics = BenchmarkMetrics(
         completed=completed,
@@ -232,69 +256,19 @@ def calculate_metrics(
     return metrics, actual_output_lens
 
 
-async def benchmark(
-    backend: str,
-    api_url: str,
-    model_id: str,
-    tokenizer: PreTrainedTokenizerBase,
-    input_requests: List[Tuple[str, int, int]],
-    best_of: int,
-    use_beam_search: bool,
-    request_rate: float,
-    disable_tqdm: bool,
-    thread_id: int = 0,
-):
-    if backend in ASYNC_REQUEST_FUNCS:
-        request_func = ASYNC_REQUEST_FUNCS.get(backend)
-    else:
-        raise ValueError(f"Unknown backend: {backend}")
-
-    print(f"Traffic request rate: {request_rate}")
-
-    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
-
-    benchmark_start_time = time.perf_counter()
-    tasks = []
-    ireq = 0
-    async for request in get_request(input_requests, request_rate):
-        prompt, prompt_len, output_len = request
-        ireq += 1
-        if ireq == 2:
-            print(f"Thread {thread_id} Request {ireq}: {prompt}")
-        request_func_input = RequestFuncInput(
-            model=model_id,
-            prompt=prompt,
-            api_url=api_url,
-            prompt_len=prompt_len,
-            output_len=output_len,
-            best_of=best_of,
-            use_beam_search=use_beam_search,
-        )
-        tasks.append(
-            asyncio.create_task(
-                request_func(request_func_input=request_func_input,
-                             pbar=pbar)))
-    outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
-
-    if not disable_tqdm:
-        pbar.close()
-
-    benchmark_duration = time.perf_counter() - benchmark_start_time
-
-    metrics, actual_output_lens = calculate_metrics(
-        input_requests=input_requests,
-        outputs=outputs,
-        dur_s=benchmark_duration,
-        tokenizer=tokenizer,
-    )
-
+def dump_metrics_and_results(
+    metrics: BenchmarkMetrics, 
+    actual_output_lens: List[int],
+    outputs: List[RequestFuncOutput], 
+    benchmark_duration: float
+) -> dict:
     print("{s:{c}^{n}}".format(s=' Serving Benchmark Result ', n=50, c='='))
     print("{:<40} {:<10}".format("Successful requests:", metrics.completed))
     print("{:<40} {:<10.2f}".format("Benchmark duration (s):",
                                     benchmark_duration))
     print("{:<40} {:<10}".format("Total input tokens:", metrics.total_input))
     print("{:<40} {:<10}".format("Total generated tokens:",
-                                 metrics.total_output))
+                                metrics.total_output))
     print("{:<40} {:<10.2f}".format("Request throughput (req/s):",
                                     metrics.request_throughput))
     print("{:<40} {:<10.2f}".format("Input token throughput (tok/s):",
@@ -307,15 +281,15 @@ async def benchmark(
                                     metrics.median_ttft_ms))
     print("{:<40} {:<10.2f}".format("P99 TTFT (ms):", metrics.p99_ttft_ms))
     print("{s:{c}^{n}}".format(s='Time per Output Token (excl. 1st token)',
-                               n=50,
-                               c='-'))
+                            n=50,
+                            c='-'))
     print("{:<40} {:<10.2f}".format("Mean TPOT (ms):", metrics.mean_tpot_ms))
     print("{:<40} {:<10.2f}".format("Median TPOT (ms):",
                                     metrics.median_tpot_ms))
     print("{:<40} {:<10.2f}".format("P99 TPOT (ms):", metrics.p99_tpot_ms))
     print("=" * 50)
 
-    result = {
+    return {
         "duration": benchmark_duration,
         "completed": metrics.completed,
         "total_input_tokens": metrics.total_input,
@@ -336,7 +310,137 @@ async def benchmark(
         "generated_texts": [output.generated_text for output in outputs],
         "errors": [output.error for output in outputs],
     }
-    return result
+
+async def benchmark_async(
+    backend: str,
+    api_url: str,
+    model_id: str,
+    tokenizer: PreTrainedTokenizerBase,
+    input_requests: List[Tuple[str, int, int]],
+    best_of: int,
+    use_beam_search: bool,
+    request_rate: float,
+    disable_tqdm: bool,
+    thread_id: int = -1,
+):
+    if backend in ASYNC_REQUEST_FUNCS:
+        request_func = ASYNC_REQUEST_FUNCS.get(backend)
+    else:
+        raise ValueError(f"Unknown backend: {backend}")
+
+    print(f"Traffic request rate: {request_rate}")
+
+    # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
+    if disable_tqdm:
+        pbar = None
+    else:
+        if thread_id == -1:
+            pbar = tqdm(total=len(input_requests))
+        else:
+            pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
+
+    benchmark_start_time = time.perf_counter()
+    tasks = []
+    async for request in get_request_async(input_requests, request_rate):
+        prompt, prompt_len, output_len = request
+        request_func_input = RequestFuncInput(
+            model=model_id,
+            prompt=prompt,
+            api_url=api_url,
+            prompt_len=prompt_len,
+            output_len=output_len,
+            best_of=best_of,
+            use_beam_search=use_beam_search,
+        )
+        tasks.append(
+            asyncio.create_task(
+                request_func(request_func_input=request_func_input,
+                             pbar=pbar)))
+    outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
+
+    if not disable_tqdm:
+        pbar.close()
+
+
+    if thread_id == -1:
+        benchmark_duration = time.perf_counter() - benchmark_start_time
+        
+        metrics, actual_output_lens = calculate_metrics(
+            input_requests=input_requests,
+            outputs=outputs,
+            dur_s=benchmark_duration,
+            tokenizer=tokenizer,
+        )
+
+        return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
+    
+    else:
+        return outputs
+    
+
+def benchmark(
+    backend: str,
+    api_url: str,
+    model_id: str,
+    tokenizer: PreTrainedTokenizerBase,
+    input_requests: List[Tuple[str, int, int]],
+    best_of: int,
+    use_beam_search: bool,
+    request_rate: float,
+    disable_tqdm: bool,
+    thread_id: int = -1,
+):
+    if backend in REQUEST_FUNCS:
+        request_func = REQUEST_FUNCS.get(backend)
+    else:
+        raise ValueError(f"Unknown backend: {backend}")
+
+    print(f"Traffic request rate: {request_rate}")
+
+    # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
+    if disable_tqdm:
+        pbar = None
+    else:
+        if thread_id == -1:
+            pbar = tqdm(total=len(input_requests))
+        else:
+            pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
+
+    benchmark_start_time = time.perf_counter()
+    outputs = []
+    for request in get_request(input_requests, request_rate):
+        prompt, prompt_len, output_len = request
+        request_func_input = RequestFuncInput(
+            model=model_id,
+            prompt=prompt,
+            api_url=api_url,
+            prompt_len=prompt_len,
+            output_len=output_len,
+            best_of=best_of,
+            use_beam_search=use_beam_search,
+        )
+        
+        outputs.append(request_func(request_func_input=request_func_input,
+                             pbar=pbar))
+        
+    if not disable_tqdm:
+        pbar.close()
+
+
+    if thread_id == -1:
+        benchmark_duration = time.perf_counter() - benchmark_start_time
+        
+        metrics, actual_output_lens = calculate_metrics(
+            input_requests=input_requests,
+            outputs=outputs,
+            dur_s=benchmark_duration,
+            tokenizer=tokenizer,
+        )
+
+        return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
+    
+    else:
+        return outputs
 
 
 class benchThread(threading.Thread):
@@ -357,8 +461,7 @@ class benchThread(threading.Thread):
         
     def run(self):
         time.sleep(self.ramp_up_time)
-        return asyncio.run(
-            benchmark(
+        self.outputs = benchmark(
                 backend=self.backend,
                 api_url=self.api_url,
                 model_id=self.model_id,
@@ -369,23 +472,12 @@ class benchThread(threading.Thread):
                 request_rate=self.request_rate,
                 disable_tqdm=self.disable_tqdm,
                 thread_id=self.thread_id,
-            ))
+            )
+        
+    def get_result(self):
+        threading.Thread.join(self)
+        return self.outputs
 
-def run_benchmark_async(backend, api_url, model_id, tokenizer, input_requests, best_of, use_beam_search, request_rate, disable_tqdm):
-    result = asyncio.run(
-        benchmark(
-            backend=backend,
-            api_url=api_url,
-            model_id=model_id,
-            tokenizer=tokenizer,
-            input_requests=input_requests,
-            best_of=best_of,
-            use_beam_search=use_beam_search,
-            request_rate=request_rate,
-            disable_tqdm=disable_tqdm,
-        ))
-    
-    return result
 
 def main(args: argparse.Namespace):
     print(args)
@@ -472,7 +564,7 @@ def main(args: argparse.Namespace):
 
     if args.thread_num == 1:
         benchmark_result = asyncio.run(
-            benchmark(
+            benchmark_async(
                 backend=backend,
                 api_url=api_url,
                 model_id=model_id,
@@ -484,6 +576,7 @@ def main(args: argparse.Namespace):
                 disable_tqdm=args.disable_tqdm,
             ))
     else:
+        benchmark_start_time = time.perf_counter()
         threads = []
         for i in range(args.thread_num):
             thread = benchThread(i, i * args.ramp_up_time / args.thread_num, backend, api_url, model_id, tokenizer, input_requests[i],
@@ -491,17 +584,48 @@ def main(args: argparse.Namespace):
             thread.start()
             threads.append(thread)
             
-        benchmark_result = {}
         for thread in threads:
-            result = thread.join()
-            for key, value in result.items():
-                if key in benchmark_result:
-                    benchmark_result[key] += value
-                else:
-                    benchmark_result[key] = value
-                
-        print(json.dumps(benchmark_result, indent=4))
+            thread.join()
+        benchmark_duration = time.perf_counter() - benchmark_start_time
         
+        all_outputs = []
+        for thread in threads:
+            all_outputs += thread.get_result()
+            
+        metrics, actual_output_lens = calculate_metrics(
+            input_requests=sum(input_requests, []),
+            outputs=all_outputs,
+            dur_s=benchmark_duration,
+            tokenizer=tokenizer,
+        )
+        benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
+                
+        # # result_queue = multiprocessing.Queue()
+        # processes = []
+        # benchmark_start_time = time.perf_counter()
+        
+        # for i in range(args.thread_num):
+        #     process = multiprocessing.Process(target=benchmark, args=(
+        #         backend, api_url, model_id, tokenizer, input_requests[i], args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm, i))
+        #     processes.append(process)
+        #     process.start()
+            
+        # for progress in processes:
+        #     progress.join()
+            
+        # benchmark_duration = time.perf_counter() - benchmark_start_time
+            
+        # all_outputs = []
+        # for progress in processes:
+        #     all_outputs += progress.get()
+            
+        # metrics, actual_output_lens = calculate_metrics(
+        #     input_requests=sum(input_requests, []),
+        #     outputs=all_outputs,
+        #     dur_s=benchmark_duration,
+        #     tokenizer=tokenizer,
+        # )
+        # benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)
 
     # Save config and results to json
     if args.save_result:

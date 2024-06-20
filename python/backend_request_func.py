@@ -1,3 +1,4 @@
+import http.client
 import json
 import os
 import sys
@@ -7,9 +8,11 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 import aiohttp
+import requests
 from tqdm.asyncio import tqdm
 
 AIOHTTP_TIMEOUT = aiohttp.ClientTimeout(total=6 * 60 * 60)
+HTTP_TIMEOUT = 6 * 60 * 60
 
 
 @dataclass
@@ -386,4 +389,118 @@ ASYNC_REQUEST_FUNCS = {
     "openai": async_request_openai_completions,
     "openai-chat": async_request_openai_chat_completions,
     "tensorrt-llm": async_request_trt_llm,
+}
+
+def request_openai_completions(
+    request_func_input: RequestFuncInput,
+    pbar: Optional[tqdm] = None,
+) -> RequestFuncOutput:
+    api_url = request_func_input.api_url
+    assert api_url.endswith(
+        "v1/completions"
+    ), "OpenAI Completions API URL must end with 'v1/completions'."
+
+    # async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+    assert not request_func_input.use_beam_search
+    payload = {
+        "model": request_func_input.model,
+        "prompt": request_func_input.prompt,
+        "temperature": 0.0,
+        "best_of": request_func_input.best_of,
+        "max_tokens": request_func_input.output_len,
+        "stream": True,
+    }
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
+    }
+
+    output = RequestFuncOutput()
+    output.prompt_len = request_func_input.prompt_len
+
+    generated_text = ""
+    ttft = 0.0
+    st = time.perf_counter()
+    most_recent_timestamp = st
+    try:
+        with requests.post(url=api_url, json=payload, 
+                           headers=headers, stream=True,
+                           timeout=HTTP_TIMEOUT) as response:
+            if response.status_code == 200:
+                chunk_block = response.content.decode("utf-8").strip()
+                for chunk in chunk_block.split("\n\n"):
+                    if not chunk:
+                        continue
+                    chunk = remove_prefix(chunk, "data: ")
+                    
+                    if chunk == "[DONE]":
+                        latency = time.perf_counter() - st
+                    else:
+                        data = json.loads(chunk)
+                        
+                        # try:
+                        #     data = json.loads(chunk)
+                        # except json.decoder.JSONDecodeError as e:
+                        #     print(f"Error decoding JSON: {chunk}")
+                        #     print(f"Error: {e}")
+                            # chunk_block_split = chunk_block.split("\n\n")
+                            # print(f"chunk_block: {chunk_block_split}")
+                            # print(f"chunk_bytes_block: {chunk_bytes_block}")
+                            # print(f"Response: {response.content}")
+                            # pass
+
+                        # data = 
+                        # {
+                        #     "id": "cmpl-711df4e3434048b392ba4f31ebffa5f4",
+                        #     "created": 1718863175,
+                        #     "model": "/mnt/llm2/llm_perf/hf_models/llama-7b-hf",
+                        #     "choices": [
+                        #         {
+                        #             "index": 0,
+                        #             "text": " out",
+                        #             "logprobs": null,
+                        #             "finish_reason": "length",
+                        #             "stop_reason": null
+                        #         }
+                        #     ],
+                        #     "usage": {
+                        #         "prompt_tokens": 7,
+                        #         "total_tokens": 238,
+                        #         "completion_tokens": 231
+                        #     }
+                        # }
+                        
+                        if data["choices"][0]["text"]:
+                            timestamp = time.perf_counter()
+                            # First token
+                            if ttft == 0.0:
+                                ttft = time.perf_counter() - st
+                                output.ttft = ttft
+
+                            # Decoding phase
+                            # NOTE: Some completion API might have a last
+                            # usage summary response without a token so we
+                            # do not want to include as inter-token-latency
+                            elif data.get("usage", None) is None:
+                                output.itl.append(timestamp -
+                                                    most_recent_timestamp)
+
+                            most_recent_timestamp = timestamp
+                            generated_text += data["choices"][0]["text"]
+
+                output.generated_text = generated_text
+                output.success = True
+                output.latency = latency
+    except Exception:
+        output.success = False
+        exc_info = sys.exc_info()
+        output.error = "".join(traceback.format_exception(*exc_info))
+
+    if pbar:
+        pbar.update(1)
+    return output
+
+REQUEST_FUNCS = {
+    "vllm": request_openai_completions,
+    "lmdeploy": request_openai_completions,
+    "openai": request_openai_completions,
 }
