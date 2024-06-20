@@ -227,15 +227,15 @@ def calculate_metrics(
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
-            print(f"outputs[i].latency: ", outputs[i].latency)
-            print(f"outputs[i].ttft: ", outputs[i].ttft)
+            # print(f"outputs[i].latency: ", outputs[i].latency)
+            # print(f"outputs[i].ttft: ", outputs[i].ttft)
             ttfts.append(outputs[i].ttft)
             completed += 1
         else:
             # print(f"Error: {outputs[i].error}")
             actual_output_lens.append(0)
             
-    print(f"tpots: {tpots}")
+    # print(f"tpots: {tpots}")
 
     metrics = BenchmarkMetrics(
         completed=completed,
