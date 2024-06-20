@@ -44,27 +44,27 @@ _I16KO128_BATCH_SIZE_LIST=(1 2 4 8 12 16 20 24 28 32)
 for MODE in ${_MODE_LIST[@]}; do
 
 
-for BATCH_SIZE in ${_I8O256_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 8 256 $MODE
-done
-for BATCH_SIZE in ${_I256O512_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 256 512 $MODE
-done
-for BATCH_SIZE in ${_I512O512_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 512 512 $MODE
-done
-for BATCH_SIZE in ${_I1024O512_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 1024 512 $MODE
-done
-for BATCH_SIZE in ${_I1024O1024_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 1024 1024 $MODE
-done
-for BATCH_SIZE in ${_I16KO128_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 16384 128 $MODE
-done
-for BATCH_SIZE in ${_I32KO128_BATCH_SIZE_LIST[@]}; do
-    unittest 7 1 $BATCH_SIZE 32768 128 $MODE
-done
+# for BATCH_SIZE in ${_I8O256_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 8 256 $MODE
+# done
+# for BATCH_SIZE in ${_I256O512_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 256 512 $MODE
+# done
+# for BATCH_SIZE in ${_I512O512_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 512 512 $MODE
+# done
+# for BATCH_SIZE in ${_I1024O512_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 1024 512 $MODE
+# done
+# for BATCH_SIZE in ${_I1024O1024_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 1024 1024 $MODE
+# done
+# for BATCH_SIZE in ${_I16KO128_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 16384 128 $MODE
+# done
+# for BATCH_SIZE in ${_I32KO128_BATCH_SIZE_LIST[@]}; do
+#     unittest 7 1 $BATCH_SIZE 32768 128 $MODE
+# done
 
 
 for BATCH_SIZE in ${_I8O256_BATCH_SIZE_LIST[@]}; do

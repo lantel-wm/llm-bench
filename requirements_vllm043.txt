@@ -1,2 +1,2 @@
-vllm
+vllm==0.4.3
 flash-attn==2.5.9.post1
