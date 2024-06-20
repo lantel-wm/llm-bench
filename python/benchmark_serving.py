@@ -244,12 +244,19 @@ def calculate_metrics(
         request_throughput=completed / dur_s,
         input_throughput=total_input / dur_s,
         output_throughput=sum(actual_output_lens) / dur_s,
-        mean_ttft_ms=np.mean(ttfts or 0) *
-        1000,  # ttfts is empty if streaming is not supported by backend
+        
+        min_ttft_ms=np.max(ttfts or 0) * 1000,  # ttfts is empty if streaming is not supported by backend
+        max_ttft_ms=np.min(ttfts or 0) * 1000,
+        mean_ttft_ms=np.mean(ttfts or 0) * 1000,
         median_ttft_ms=np.median(ttfts or 0) * 1000,
+        p90_ttft_ms=np.percentile(ttfts or 0, 90) * 1000,
         p99_ttft_ms=np.percentile(ttfts or 0, 99) * 1000,
+        
+        min_tpot_ms=np.min(tpots) * 1000,
+        max_tpot_ms=np.max(tpots) * 1000,
         mean_tpot_ms=np.mean(tpots) * 1000,
         median_tpot_ms=np.median(tpots) * 1000,
+        p90_tpot_ms=np.percentile(tpots, 90) * 1000,
         p99_tpot_ms=np.percentile(tpots, 99) * 1000,
     )
 
@@ -275,17 +282,21 @@ def dump_metrics_and_results(
                                     metrics.input_throughput))
     print("{:<40} {:<10.2f}".format("Output token throughput (tok/s):",
                                     metrics.output_throughput))
+    
     print("{s:{c}^{n}}".format(s='Time to First Token', n=50, c='-'))
+    print("{:<40} {:<10.2f}".format("Min TTFT (ms):", metrics.min_ttft_ms))
+    print("{:<40} {:<10.2f}".format("Max TTFT (ms):", metrics.max_ttft_ms))
     print("{:<40} {:<10.2f}".format("Mean TTFT (ms):", metrics.mean_ttft_ms))
-    print("{:<40} {:<10.2f}".format("Median TTFT (ms):",
-                                    metrics.median_ttft_ms))
+    print("{:<40} {:<10.2f}".format("Median TTFT (ms):", metrics.median_ttft_ms))
+    print("{:<40} {:<10.2f}".format("P90 TTFT (ms):", metrics.p90_ttft_ms))
     print("{:<40} {:<10.2f}".format("P99 TTFT (ms):", metrics.p99_ttft_ms))
-    print("{s:{c}^{n}}".format(s='Time per Output Token (excl. 1st token)',
-                            n=50,
-                            c='-'))
+    
+    print("{s:{c}^{n}}".format(s='Time per Output Token (excl. 1st token)', n=50, c='-'))
+    print("{:<40} {:<10.2f}".format("Min TPOT (ms):", metrics.min_tpot_ms))
+    print("{:<40} {:<10.2f}".format("Max TPOT (ms):", metrics.max_tpot_ms))
     print("{:<40} {:<10.2f}".format("Mean TPOT (ms):", metrics.mean_tpot_ms))
-    print("{:<40} {:<10.2f}".format("Median TPOT (ms):",
-                                    metrics.median_tpot_ms))
+    print("{:<40} {:<10.2f}".format("Median TPOT (ms):", metrics.median_tpot_ms))
+    print("{:<40} {:<10.2f}".format("P90 TPOT (ms):", metrics.p90_tpot_ms))
     print("{:<40} {:<10.2f}".format("P99 TPOT (ms):", metrics.p99_tpot_ms))
     print("=" * 50)
 
