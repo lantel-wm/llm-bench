@@ -1,4 +1,4 @@
-# vllm-static-bench
+# vllm-benchmark
 
 ## 前置准备
 
