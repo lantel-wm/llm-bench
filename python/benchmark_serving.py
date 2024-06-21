@@ -48,12 +48,27 @@ class BenchmarkMetrics:
     request_throughput: float
     input_throughput: float
     output_throughput: float
+    
+    min_ttft_ms: float
+    max_ttft_ms: float
     mean_ttft_ms: float
     median_ttft_ms: float
+    p90_ttft_ms: float
     p99_ttft_ms: float
+    
+    min_tpot_ms: float
+    max_tpot_ms: float
     mean_tpot_ms: float
     median_tpot_ms: float
+    p90_tpot_ms: float
     p99_tpot_ms: float
+    
+    min_tpr_ms: float
+    max_tpr_ms: float
+    mean_tpr_ms: float
+    median_tpr_ms: float
+    p90_tpr_ms: float
+    p99_tpr_ms: float
 
 
 def sample_sharegpt_requests(
@@ -217,6 +232,7 @@ def calculate_metrics(
     completed = 0
     tpots = []
     ttfts = []
+    tprs = []
     for i in range(len(outputs)):
         # print("outputs[i].success: ", outputs[i].success)
         # print("outputs[i].error: ", outputs[i].error)
@@ -230,6 +246,7 @@ def calculate_metrics(
             # print(f"outputs[i].latency: ", outputs[i].latency)
             # print(f"outputs[i].ttft: ", outputs[i].ttft)
             ttfts.append(outputs[i].ttft)
+            tprs.append(outputs[i].latency)
             completed += 1
         else:
             # print(f"Error: {outputs[i].error}")
@@ -245,12 +262,12 @@ def calculate_metrics(
         input_throughput=total_input / dur_s,
         output_throughput=sum(actual_output_lens) / dur_s,
         
-        min_ttft_ms=np.max(ttfts or 0) * 1000,  # ttfts is empty if streaming is not supported by backend
-        max_ttft_ms=np.min(ttfts or 0) * 1000,
-        mean_ttft_ms=np.mean(ttfts or 0) * 1000,
-        median_ttft_ms=np.median(ttfts or 0) * 1000,
-        p90_ttft_ms=np.percentile(ttfts or 0, 90) * 1000,
-        p99_ttft_ms=np.percentile(ttfts or 0, 99) * 1000,
+        min_ttft_ms=np.min(ttfts) * 1000,  # ttfts is empty if streaming is not supported by backend
+        max_ttft_ms=np.max(ttfts) * 1000,
+        mean_ttft_ms=np.mean(ttfts) * 1000,
+        median_ttft_ms=np.median(ttfts) * 1000,
+        p90_ttft_ms=np.percentile(ttfts, 90) * 1000,
+        p99_ttft_ms=np.percentile(ttfts, 99) * 1000,
         
         min_tpot_ms=np.min(tpots) * 1000,
         max_tpot_ms=np.max(tpots) * 1000,
@@ -258,6 +275,13 @@ def calculate_metrics(
         median_tpot_ms=np.median(tpots) * 1000,
         p90_tpot_ms=np.percentile(tpots, 90) * 1000,
         p99_tpot_ms=np.percentile(tpots, 99) * 1000,
+        
+        min_tpr_ms=np.min(tprs) * 1000,
+        max_tpr_ms=np.max(tprs) * 1000,
+        mean_tpr_ms=np.mean(tprs) * 1000,
+        median_tpr_ms=np.median(tprs) * 1000,
+        p90_tpr_ms=np.percentile(tprs, 90) * 1000,
+        p99_tpr_ms=np.percentile(tprs, 99) * 1000,
     )
 
     return metrics, actual_output_lens
@@ -298,6 +322,15 @@ def dump_metrics_and_results(
     print("{:<40} {:<10.2f}".format("Median TPOT (ms):", metrics.median_tpot_ms))
     print("{:<40} {:<10.2f}".format("P90 TPOT (ms):", metrics.p90_tpot_ms))
     print("{:<40} {:<10.2f}".format("P99 TPOT (ms):", metrics.p99_tpot_ms))
+    
+    print("{s:{c}^{n}}".format(s='Time per Request', n=50, c='-'))
+    print("{:<40} {:<10.2f}".format("Min TPR (ms):", metrics.min_tpr_ms))
+    print("{:<40} {:<10.2f}".format("Max TPR (ms):", metrics.max_tpr_ms))
+    print("{:<40} {:<10.2f}".format("Mean TPR (ms):", metrics.mean_tpr_ms))
+    print("{:<40} {:<10.2f}".format("Median TPR (ms):", metrics.median_tpr_ms))
+    print("{:<40} {:<10.2f}".format("P90 TPR (ms):", metrics.p90_tpr_ms))
+    print("{:<40} {:<10.2f}".format("P99 TPR (ms):", metrics.p99_tpr_ms))
+    
     print("=" * 50)
 
     return {
@@ -416,7 +449,7 @@ def benchmark(
             pbar = tqdm(total=len(input_requests))
         else:
             pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
-
+    
     benchmark_start_time = time.perf_counter()
     outputs = []
     for request in get_request(input_requests, request_rate):
@@ -433,6 +466,10 @@ def benchmark(
         
         outputs.append(request_func(request_func_input=request_func_input,
                              pbar=pbar))
+        
+        if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
+            print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
+            break
         
     if not disable_tqdm:
         pbar.close()
@@ -486,7 +523,7 @@ class benchThread(threading.Thread):
             )
         
     def get_result(self):
-        threading.Thread.join(self)
+        self.join()
         return self.outputs
 
 
@@ -591,14 +628,14 @@ def main(args: argparse.Namespace):
         threads = []
         for i in range(args.thread_num):
             thread = benchThread(i, i * args.ramp_up_time / args.thread_num, backend, api_url, model_id, tokenizer, input_requests[i],
-                                 args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
+                                    args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
             thread.start()
             threads.append(thread)
-            
+
         for thread in threads:
             thread.join()
         benchmark_duration = time.perf_counter() - benchmark_start_time
-        
+
         all_outputs = []
         for thread in threads:
             all_outputs += thread.get_result()
@@ -824,6 +861,12 @@ if __name__ == "__main__":
         type=float,
         default=0,
         help="Ramp up time in seconds for each thread.",
+    )
+    parser.add_argument(
+        "--thread-stop-time",
+        type=float,
+        default=0,
+        help="Stop time in seconds for each thread.",
     )
 
     args = parser.parse_args()
