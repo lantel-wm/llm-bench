@@ -42,6 +42,7 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 @dataclass
 class BenchmarkMetrics:
     completed: int
+    successful_rate: float
     total_input: int
     total_output: int
     request_throughput: float
@@ -251,6 +252,7 @@ def calculate_metrics(
 
     metrics = BenchmarkMetrics(
         completed=completed,
+        successful_rate=completed / len(outputs),
         total_input=total_input,
         total_output=sum(actual_output_lens),
         request_throughput=completed / dur_s,
@@ -290,6 +292,7 @@ def dump_metrics_and_results(
 ) -> dict:
     print("{s:{c}^{n}}".format(s=' Serving Benchmark Result ', n=50, c='='))
     print("{:<40} {:<10}".format("Successful requests:", metrics.completed))
+    print("{:<40} {:<10.2f}".format("Successful rate:", metrics.successful_rate))
     print("{:<40} {:<10.2f}".format("Benchmark duration (s):",
                                     benchmark_duration))
     print("{:<40} {:<10}".format("Total input tokens:", metrics.total_input))

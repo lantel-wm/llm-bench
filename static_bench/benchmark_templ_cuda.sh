@@ -2,7 +2,7 @@ SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
 if [ ! -n "$BENCHMARK_LLM" ]; then
-    echo "[ERROR] please set env BENCHMARK_LLM to the benchmark_llama executable"
+    echo "[ERROR] please set env BENCHMARK_LLM to the python benchmark script"
     exit 1
 fi
 
