@@ -232,10 +232,7 @@ def calculate_metrics(
     tpots = []
     ttfts = []
     tprs = []
-    # outputs_txt_str = ""
     for i in range(len(outputs)):
-        # print("outputs[i].success: ", outputs[i].success)
-        # print("outputs[i].error: ", outputs[i].error)
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
@@ -243,24 +240,13 @@ def calculate_metrics(
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
-            # print(f"outputs[i].latency: ", outputs[i].latency)
-            # print(f"outputs[i].ttft: ", outputs[i].ttft)
-            if outputs[i].ttft == 0.0:
-                print(f"outputs[{i}], len(outputs)={len(outputs)}")
-                print(outputs[i])
                 
             ttfts.append(outputs[i].ttft)
             tprs.append(outputs[i].latency)
             completed += 1
             
-            # outputs_txt_str += f"outputs[{i}]: generated_text={outputs[i].generated_text}, success={outputs[i].success}, lantency={outputs[i].latency}, ttft={outputs[i].ttft}, itl={outputs[i].itl}, prompt_len={outputs[i].prompt_len}, error={outputs[i].error}\n"
         else:
-            # print(f"Error: {outputs[i].error}")
             actual_output_lens.append(0)
-    
-    # with open("outputs.txt", "w") as f:
-    #     f.write(outputs_txt_str)
-    # print(f"tpots: {tpots}")
 
     metrics = BenchmarkMetrics(
         completed=completed,
@@ -270,12 +256,12 @@ def calculate_metrics(
         input_throughput=total_input / dur_s,
         output_throughput=sum(actual_output_lens) / dur_s,
         
-        min_ttft_ms=np.min(ttfts) * 1000,  # ttfts is empty if streaming is not supported by backend
-        max_ttft_ms=np.max(ttfts) * 1000,
-        mean_ttft_ms=np.mean(ttfts) * 1000,
-        median_ttft_ms=np.median(ttfts) * 1000,
-        p90_ttft_ms=np.percentile(ttfts, 90) * 1000,
-        p99_ttft_ms=np.percentile(ttfts, 99) * 1000,
+        min_ttft_ms=np.min(ttfts or 0) * 1000,  # ttfts is empty if streaming is not supported by backend
+        max_ttft_ms=np.max(ttfts or 0) * 1000,
+        mean_ttft_ms=np.mean(ttfts or 0) * 1000,
+        median_ttft_ms=np.median(ttfts or 0) * 1000,
+        p90_ttft_ms=np.percentile(ttfts or 0, 90) * 1000,
+        p99_ttft_ms=np.percentile(ttfts or 0, 99) * 1000,
         
         min_tpot_ms=np.min(tpots) * 1000,
         max_tpot_ms=np.max(tpots) * 1000,
@@ -381,11 +367,7 @@ async def benchmark_async(
 
     print(f"Traffic request rate: {request_rate}")
 
-    # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
-    if disable_tqdm:
-        pbar = None
-    else:
-        pbar = tqdm(total=len(input_requests))
+    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     tasks = []

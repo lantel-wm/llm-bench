@@ -402,7 +402,6 @@ def request_openai_completions(
         "v1/completions"
     ), "OpenAI Completions API URL must end with 'v1/completions'."
 
-    # async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
     assert not request_func_input.use_beam_search
     payload = {
         "model": request_func_input.model,
@@ -411,7 +410,7 @@ def request_openai_completions(
         "best_of": request_func_input.best_of,
         "max_tokens": request_func_input.output_len,
         "min_tokens": request_func_input.output_len,
-        # "early_stopping": False,
+        "early_stopping": False,
         "stream": True,
     }
     headers = {
@@ -441,38 +440,6 @@ def request_openai_completions(
                     else:
                         data = json.loads(chunk)
                         
-                        # try:
-                        #     data = json.loads(chunk)
-                        # except json.decoder.JSONDecodeError as e:
-                        #     print(f"Error decoding JSON: {chunk}")
-                        #     print(f"Error: {e}")
-                            # chunk_block_split = chunk_block.split("\n\n")
-                            # print(f"chunk_block: {chunk_block_split}")
-                            # print(f"chunk_bytes_block: {chunk_bytes_block}")
-                            # print(f"Response: {response.content}")
-                            # pass
-
-                        # data = 
-                        # {
-                        #     "id": "cmpl-711df4e3434048b392ba4f31ebffa5f4",
-                        #     "created": 1718863175,
-                        #     "model": "/mnt/llm2/llm_perf/hf_models/llama-7b-hf",
-                        #     "choices": [
-                        #         {
-                        #             "index": 0,
-                        #             "text": " out",
-                        #             "logprobs": null,
-                        #             "finish_reason": "length",
-                        #             "stop_reason": null
-                        #         }
-                        #     ],
-                        #     "usage": {
-                        #         "prompt_tokens": 7,
-                        #         "total_tokens": 238,
-                        #         "completion_tokens": 231
-                        #     }
-                        # }
-                        
                         if data["choices"][0]["text"]:
                             timestamp = time.perf_counter()
                             # First token
@@ -495,13 +462,6 @@ def request_openai_completions(
                 output.success = True
                 output.latency = latency
                 
-                if output.generated_text == '':
-                    output.success = False
-                    output.error = "No generated text"
-                    print(f"Error: {output.error}")
-                    print(f"chunk: {chunk}")
-                    print(f"data: {data}")
-                    print(f"prompt: {request_func_input.prompt}")
     except Exception:
         output.success = False
         exc_info = sys.exc_info()
