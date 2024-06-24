@@ -461,7 +461,7 @@ def request_openai_completions(
                 output.generated_text = generated_text
                 output.success = True
                 output.latency = latency
-                
+
     except Exception:
         output.success = False
         exc_info = sys.exc_info()

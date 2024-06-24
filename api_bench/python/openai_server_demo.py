@@ -2,7 +2,6 @@ from openai import OpenAI
 
 # Modify OpenAI's API key and API base to use vLLM's API server.
 openai_api_key = "token-abc123"
-# openai_api_key = None
 openai_api_base = "http://10.198.31.25:8000/v1"
 client = OpenAI(
     api_key=openai_api_key,

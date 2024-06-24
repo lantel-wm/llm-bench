@@ -91,6 +91,7 @@ def sample_sharegpt_requests(
 
     # Shuffle the dataset.
     random.shuffle(dataset)
+
     # Filter out sequences that are too long or too short
     filtered_dataset: List[Tuple[str, int, int]] = []
     for i in range(len(dataset)):
@@ -401,7 +402,6 @@ async def benchmark_async(
     )
 
     return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
-    
 
 def benchmark(
     backend: str,
@@ -437,18 +437,9 @@ def benchmark(
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
             break
-        prompt, prompt_len, output_len = request
-        request_func_input = RequestFuncInput(
-            model=model_id,
-            prompt=prompt,
-            api_url=api_url,
-            prompt_len=prompt_len,
-            output_len=output_len,
-            best_of=best_of,
-            use_beam_search=use_beam_search,
-        )
-        
+            
         outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
+
         
     if not disable_tqdm:
         pbar.close()
@@ -547,8 +538,6 @@ def main(args: argparse.Namespace):
             fixed_output_len=args.sharegpt_output_len,
         )
         
-            
-
     elif args.dataset_name == "sonnet":
         # Do not format the prompt, pass to message directly
         if args.backend == "openai-chat":
