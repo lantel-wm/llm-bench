@@ -91,7 +91,7 @@ def sample_sharegpt_requests(
 
     # Shuffle the dataset.
     random.shuffle(dataset)
-
+    print(f"len(dataset): {len(dataset)}")
     # Filter out sequences that are too long or too short
     filtered_dataset: List[Tuple[str, int, int]] = []
     for i in range(len(dataset)):
@@ -233,6 +233,7 @@ def calculate_metrics(
     tpots = []
     ttfts = []
     tprs = []
+    # outputs_txt_str = ""
     for i in range(len(outputs)):
         # print("outputs[i].success: ", outputs[i].success)
         # print("outputs[i].error: ", outputs[i].error)
@@ -245,13 +246,21 @@ def calculate_metrics(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
             # print(f"outputs[i].latency: ", outputs[i].latency)
             # print(f"outputs[i].ttft: ", outputs[i].ttft)
+            if outputs[i].ttft == 0.0:
+                print(f"outputs[{i}], len(outputs)={len(outputs)}")
+                print(outputs[i])
+                
             ttfts.append(outputs[i].ttft)
             tprs.append(outputs[i].latency)
             completed += 1
+            
+            # outputs_txt_str += f"outputs[{i}]: generated_text={outputs[i].generated_text}, success={outputs[i].success}, lantency={outputs[i].latency}, ttft={outputs[i].ttft}, itl={outputs[i].itl}, prompt_len={outputs[i].prompt_len}, error={outputs[i].error}\n"
         else:
             # print(f"Error: {outputs[i].error}")
             actual_output_lens.append(0)
-            
+    
+    # with open("outputs.txt", "w") as f:
+    #     f.write(outputs_txt_str)
     # print(f"tpots: {tpots}")
 
     metrics = BenchmarkMetrics(
@@ -439,7 +448,7 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    print(f"Traffic request rate: {request_rate}")
+    print(f"Thread {thread_id} launched. Traffic request rate: {request_rate}")
 
     # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
     if disable_tqdm:
@@ -453,6 +462,9 @@ def benchmark(
     benchmark_start_time = time.perf_counter()
     outputs = []
     for request in get_request(input_requests, request_rate):
+        if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
+            print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
+            break
         prompt, prompt_len, output_len = request
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -464,12 +476,7 @@ def benchmark(
             use_beam_search=use_beam_search,
         )
         
-        outputs.append(request_func(request_func_input=request_func_input,
-                             pbar=pbar))
-        
-        if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
-            print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
-            break
+        outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
         
     if not disable_tqdm:
         pbar.close()
@@ -529,7 +536,7 @@ class benchThread(threading.Thread):
 
 def main(args: argparse.Namespace):
     print(args)
-    assert args.thread_num > 0, "Number of threads must be greater than 0."
+    assert args.num_threads > 0, "Number of threads must be greater than 0."
     
     if args.seed is not None:
         random.seed(args.seed)
@@ -561,20 +568,13 @@ def main(args: argparse.Namespace):
         )
 
     elif args.dataset_name == "sharegpt":
-        if args.thread_num == 1:
-            input_requests = sample_sharegpt_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts,
-                tokenizer=tokenizer,
-                fixed_output_len=args.sharegpt_output_len,
-            )
-        else:
-            input_requests = [sample_sharegpt_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts,
-                tokenizer=tokenizer,
-                fixed_output_len=args.sharegpt_output_len,
-            ) for _ in range(args.thread_num)]
+        input_requests = sample_sharegpt_requests(
+            dataset_path=args.dataset_path,
+            num_requests=args.num_prompts * args.num_threads,
+            tokenizer=tokenizer,
+            fixed_output_len=args.sharegpt_output_len,
+        )
+        
             
 
     elif args.dataset_name == "sonnet":
@@ -610,7 +610,7 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError(f"Unknown dataset: {args.dataset_name}")
 
-    if args.thread_num == 1:
+    if args.num_threads == 1:
         benchmark_result = asyncio.run(
             benchmark_async(
                 backend=backend,
@@ -626,8 +626,8 @@ def main(args: argparse.Namespace):
     else:
         benchmark_start_time = time.perf_counter()
         threads = []
-        for i in range(args.thread_num):
-            thread = benchThread(i, i * args.ramp_up_time / args.thread_num, backend, api_url, model_id, tokenizer, input_requests[i],
+        for i in range(args.num_threads):
+            thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i],
                                     args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
             thread.start()
             threads.append(thread)
@@ -638,7 +638,9 @@ def main(args: argparse.Namespace):
 
         all_outputs = []
         for thread in threads:
-            all_outputs += thread.get_result()
+            outputs = thread.get_result()
+            print(f"len(outputs): {len(outputs)}, thread_id: {thread.thread_id}")
+            all_outputs += outputs
             
         metrics, actual_output_lens = calculate_metrics(
             input_requests=sum(input_requests, []),
@@ -652,7 +654,7 @@ def main(args: argparse.Namespace):
         # processes = []
         # benchmark_start_time = time.perf_counter()
         
-        # for i in range(args.thread_num):
+        # for i in range(args.num_threads):
         #     process = multiprocessing.Process(target=benchmark, args=(
         #         backend, api_url, model_id, tokenizer, input_requests[i], args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm, i))
         #     processes.append(process)
@@ -851,7 +853,7 @@ if __name__ == "__main__":
         "If not specified, results are saved in the current directory.",
     )
     parser.add_argument(
-        "--thread-num",
+        "--num-threads",
         type=int,
         default=1,
         help="Number of threads to use for the benchmark.",

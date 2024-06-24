@@ -490,6 +490,12 @@ def request_openai_completions(
                 output.generated_text = generated_text
                 output.success = True
                 output.latency = latency
+                
+                if output.generated_text == '':
+                    output.success = False
+                    output.error = "No generated text"
+                    print(f"Error: {output.error}")
+                    print(f"chunk: {chunk}")
     except Exception:
         output.success = False
         exc_info = sys.exc_info()
