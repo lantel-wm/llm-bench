@@ -21,7 +21,6 @@ On the client side, run:
 import argparse
 import asyncio
 import threading
-import multiprocessing
 import json
 import os
 import random
@@ -77,6 +76,7 @@ def sample_sharegpt_requests(
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
 ) -> List[Tuple[str, int, int]]:
+    print("[I] Sampling requests...")
     if fixed_output_len is not None and fixed_output_len < 4:
         raise ValueError("output_len too small")
 
@@ -420,7 +420,7 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    print(f"Thread {thread_id} launched. Traffic request rate: {request_rate}")
+    # print(f"Thread {thread_id} launched. Traffic request rate: {request_rate}")
 
     # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
     if disable_tqdm:
@@ -435,9 +435,20 @@ def benchmark(
     outputs = []
     for request in get_request(input_requests, request_rate):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
-            print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
+            # print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
             break
-            
+        
+        prompt, prompt_len, output_len = request
+        request_func_input = RequestFuncInput(
+            model=model_id,
+            prompt=prompt,
+            api_url=api_url,
+            prompt_len=prompt_len,
+            output_len=output_len,
+            best_of=best_of,
+            use_beam_search=use_beam_search,
+        )
+                
         outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
 
         
