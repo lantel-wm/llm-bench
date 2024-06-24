@@ -91,7 +91,6 @@ def sample_sharegpt_requests(
 
     # Shuffle the dataset.
     random.shuffle(dataset)
-    print(f"len(dataset): {len(dataset)}")
     # Filter out sequences that are too long or too short
     filtered_dataset: List[Tuple[str, int, int]] = []
     for i in range(len(dataset)):
@@ -374,7 +373,6 @@ async def benchmark_async(
     use_beam_search: bool,
     request_rate: float,
     disable_tqdm: bool,
-    thread_id: int = -1,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
@@ -387,10 +385,7 @@ async def benchmark_async(
     if disable_tqdm:
         pbar = None
     else:
-        if thread_id == -1:
-            pbar = tqdm(total=len(input_requests))
-        else:
-            pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
+        pbar = tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     tasks = []
@@ -414,21 +409,16 @@ async def benchmark_async(
     if not disable_tqdm:
         pbar.close()
 
-
-    if thread_id == -1:
-        benchmark_duration = time.perf_counter() - benchmark_start_time
-        
-        metrics, actual_output_lens = calculate_metrics(
-            input_requests=input_requests,
-            outputs=outputs,
-            dur_s=benchmark_duration,
-            tokenizer=tokenizer,
-        )
-
-        return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
+    benchmark_duration = time.perf_counter() - benchmark_start_time
     
-    else:
-        return outputs
+    metrics, actual_output_lens = calculate_metrics(
+        input_requests=input_requests,
+        outputs=outputs,
+        dur_s=benchmark_duration,
+        tokenizer=tokenizer,
+    )
+
+    return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
     
 
 def benchmark(
@@ -643,39 +633,12 @@ def main(args: argparse.Namespace):
             all_outputs += outputs
             
         metrics, actual_output_lens = calculate_metrics(
-            input_requests=sum(input_requests, []),
+            input_requests=input_requests,
             outputs=all_outputs,
             dur_s=benchmark_duration,
             tokenizer=tokenizer,
         )
         benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
-                
-        # # result_queue = multiprocessing.Queue()
-        # processes = []
-        # benchmark_start_time = time.perf_counter()
-        
-        # for i in range(args.num_threads):
-        #     process = multiprocessing.Process(target=benchmark, args=(
-        #         backend, api_url, model_id, tokenizer, input_requests[i], args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm, i))
-        #     processes.append(process)
-        #     process.start()
-            
-        # for progress in processes:
-        #     progress.join()
-            
-        # benchmark_duration = time.perf_counter() - benchmark_start_time
-            
-        # all_outputs = []
-        # for progress in processes:
-        #     all_outputs += progress.get()
-            
-        # metrics, actual_output_lens = calculate_metrics(
-        #     input_requests=sum(input_requests, []),
-        #     outputs=all_outputs,
-        #     dur_s=benchmark_duration,
-        #     tokenizer=tokenizer,
-        # )
-        # benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)
 
     # Save config and results to json
     if args.save_result:

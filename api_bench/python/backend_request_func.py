@@ -229,6 +229,8 @@ async def async_request_openai_completions(
             "temperature": 0.0,
             "best_of": request_func_input.best_of,
             "max_tokens": request_func_input.output_len,
+            "min_tokens": request_func_input.output_len,
+            "early_stopping": False,
             "stream": True,
         }
         headers = {
@@ -408,6 +410,8 @@ def request_openai_completions(
         "temperature": 0.0,
         "best_of": request_func_input.best_of,
         "max_tokens": request_func_input.output_len,
+        "min_tokens": request_func_input.output_len,
+        # "early_stopping": False,
         "stream": True,
     }
     headers = {
@@ -496,6 +500,8 @@ def request_openai_completions(
                     output.error = "No generated text"
                     print(f"Error: {output.error}")
                     print(f"chunk: {chunk}")
+                    print(f"data: {data}")
+                    print(f"prompt: {request_func_input.prompt}")
     except Exception:
         output.success = False
         exc_info = sys.exc_info()
