@@ -627,7 +627,7 @@ def main(args: argparse.Namespace):
         benchmark_start_time = time.perf_counter()
         threads = []
         for i in range(args.num_threads):
-            thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i],
+            thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
                                     args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
             thread.start()
             threads.append(thread)
