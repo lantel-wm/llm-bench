@@ -48,7 +48,7 @@ fi
 STOP_TIME=$5
 
 if [ ! -n "$STOP_TIME" ]; then
-    STOP_TIME=60
+    STOP_TIME=300
 fi
 
 MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"

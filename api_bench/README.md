@@ -5,10 +5,25 @@
 下载 sharegpt 数据集：
 
 ```shell
+cd api_bench
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 ```
 
+设置环境变量：
+```shell
+export VLLM_SERVER_HOST=10.198.31.25
+export VLLM_SERVER_PORT=8000
+export BENCHMARK_LLM=${REPO_PATH}/api_bench/python/benchmark_serving.py
+export DATASET_PATH=${REPO_PATH}/api_bench/ShareGPT_V3_unfiltered_cleaned_split.json
+```
+
 ## 测试启动
+
+```shell
+bash benchmark_all_cuda.sh
+```
+
+## 使用Python测试单个case
 
 启动 server：
 ```shell

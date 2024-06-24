@@ -48,6 +48,6 @@ else
     if [ $attempt -eq 0 ]; then
         echo "[ERROR] SERVER START TIMEOUT"
     else 
-        echo "[$SERVER_PID] SERVER STARTED."
+        echo "SERVER STARTED $SERVER_PID"
     fi
 fi
