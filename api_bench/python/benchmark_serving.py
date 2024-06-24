@@ -355,7 +355,7 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.median_tpr_ms},"
     csv_line += f"{metrics.p90_tpr_ms},"
     csv_line += f"{metrics.p99_tpr_ms}"
-    print("CSV format output ", csv_line)
+    print("CSV format output:", csv_line)
 
     return {
         "duration": benchmark_duration,

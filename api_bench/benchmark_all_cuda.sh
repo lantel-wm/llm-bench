@@ -8,8 +8,8 @@ function unittest() {
     CLIENTS=$4
     STOP_TIME=$5
     MODE=$6
-    echo "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} CLIENTS$CLIENTS ${MODE^^}]"
-    RES=`bash $PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh ${MODEL_SIZE} ${GPUS} ${PROMPTS} ${CLINETS} ${STOP_TIME} | grep "CSV format output"`
+    echo "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} CLIENTS$CLIENTS STOP_TIME$STOP_TIME ${MODE^^}]"
+    RES=`bash $PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh ${MODEL_SIZE} ${GPUS} ${PROMPTS} ${CLIENTS} ${STOP_TIME} | grep "CSV format output"`
     RES=${RES##*:}
 
     if [ ! -n "$RES" ]; then
@@ -48,11 +48,10 @@ for MODE in ${_MODE_LIST[@]}; do
         fi
 
         for NUM_CLIENTS in ${_NUM_CLIENTS_LIST[@]}; do
-            unittest 7 1 1000 $NUM_CLIENTS 300 $MODE
+            unittest 7 1 1000 $NUM_CLIENTS 10 $MODE
         done
 
         kill -9 $SERVER_PID
 
     done
 done
-
