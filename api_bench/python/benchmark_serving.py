@@ -77,7 +77,7 @@ def sample_sharegpt_requests(
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
 ) -> List[Tuple[str, int, int]]:
-    print("[I] Sampling requests...")
+    # print("[I] Sampling requests...")
     if fixed_output_len is not None and fixed_output_len < 4:
         raise ValueError("output_len too small")
 
@@ -585,7 +585,7 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError(f"Unknown dataset: {args.dataset_name}")
 
-    if args.num_threads == 1:
+    if args.enable_async == 1:
         benchmark_result = asyncio.run(
             benchmark_async(
                 backend=backend,
@@ -799,6 +799,10 @@ if __name__ == "__main__":
         default=None,
         help="Specify directory to save benchmark json results."
         "If not specified, results are saved in the current directory.",
+    )
+    parser.add_argument(
+        "--enable-async",
+        action="store_true",
     )
     parser.add_argument(
         "--num-threads",
