@@ -3,26 +3,18 @@
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
-if [ ! -n "$VLLM_SERVER_HOST" ];then
-    echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server host"
+if [ -z "$VLLM_SERVER_URL" ];then
+    echo "[ERROR] please set env VLLM_SERVER_URL to the vllm server url"
     exit 1
 fi
-
-if [ ! -n "$VLLM_SERVER_PORT" ];then
-    echo "[ERROR] please set env VLLM_SERVER_PORT to the vllm server port"
-    exit 1
-fi
-
 
 function check_server_status() {
-    local url="http://${VLLM_SERVER_HOST}:${VLLM_SERVER_PORT}/v1/models"
+    local url="http://${VLLM_SERVER_URL}/v1/models"
     response=$(curl -s "${url}")
     
     if [[ $response == *"\"object\":\"list\""* ]]; then
-        # echo "Server started successfully with PID ${SERVER_PID}"
         return 0
     else
-        # echo "Server is not ready"
         return 1
     fi
 }

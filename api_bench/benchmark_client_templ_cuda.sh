@@ -13,13 +13,8 @@ if [ -z "$DATASET_PATH" ]; then
     exit 1
 fi
 
-if [ -z "$VLLM_SERVER_HOST" ];then
-    echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server host"
-    exit 1
-fi
-
-if [ -z "$VLLM_SERVER_PORT" ];then
-    echo "[ERROR] please set env VLLM_SERVER_PORT to the vllm server port"
+if [ -z "$VLLM_SERVER_URL" ];then
+    echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server url"
     exit 1
 fi
 
@@ -58,8 +53,7 @@ MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
 # python python/benchmark_serving.py --host 10.198.31.25 --port 8000 --model /mnt/llm2/llm_perf/hf_models/llama-7b-hf --dataset-name sharegpt --dataset-path ./ShareGPT_V3_unfiltered_cleaned_split.json --num-prompts 1000 --num-threads 64 --disable-tqdm --thread-stop-time 30
 
 CMD="python ${BENCHMARK_LLM} \
---host $VLLM_SERVER_HOST \
---port $VLLM_SERVER_PORT \
+--base-url $VLLM_SERVER_URL \
 --model $MODEL_DIR \
 --dataset-name sharegpt \
 --dataset-path $DATASET_PATH \
