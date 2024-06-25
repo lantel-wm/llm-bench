@@ -16,9 +16,9 @@ function unittest() {
     if [ -z "$LATENCY" ]; then
         echo "[FAILED]"
     else
-        LATENCY=$(echo "scale=2; $LATENCY * 1000" | bc)
-        O_TPS=$(echo "scale=4; $BATCH * $OUTLEN / ($LATENCY / 1000)" | bc)
-        IO_TPS=$(echo "scale=4; $BATCH * ($OUTLEN + $INLEN) / ($LATENCY / 1000)" | bc)
+        LATENCY=$(echo "scale=3; $LATENCY * 1000" | bc)
+        O_TPS=$(echo "scale=3; $BATCH * $OUTLEN / ($LATENCY / 1000)" | bc)
+        IO_TPS=$(echo "scale=3; $BATCH * ($OUTLEN + $INLEN) / ($LATENCY / 1000)" | bc)
         echo "[OK] $LATENCY, $O_TPS, $IO_TPS"
         echo "$MODEL_SIZE,$GPUS,$BATCH,$INLEN,$OUTLEN,$MODE,$LATENCY,$O_TPS,$IO_TPS" >> "$PERF_BASE_PATH/benchmark_all_cuda_result.csv"        
     fi
