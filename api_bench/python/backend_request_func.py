@@ -410,8 +410,8 @@ def request_openai_completions(
         "best_of": request_func_input.best_of,
         "max_tokens": request_func_input.output_len,
         "min_tokens": request_func_input.output_len,
-        "early_stopping": False,
         "stream": True,
+        "ignore_eos": True,
     }
     headers = {
         "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
