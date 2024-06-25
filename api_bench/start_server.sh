@@ -1,26 +1,24 @@
+#!/bin/bash
+
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
-if [ ! -n "$VLLM_SERVER_HOST" ];then
-    echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server host"
-    exit 1
-fi
-
-if [ ! -n "$VLLM_SERVER_PORT" ];then
-    echo "[ERROR] please set env VLLM_SERVER_PORT to the vllm server port"
-    exit 1
+if [ -z "$VLLM_SERVER_URL" ];then
+    VLLM_SERVER_URL="http://10.198.31.25:8000"
+    VLLM_SERVER_HOST=$(echo $VLLM_SERVER_URL | sed -E 's|http://([^:/]+).*|\1|')
+    VLLM_SERVER_PORT=$(echo $VLLM_SERVER_URL | sed -E 's|.*:([0-9]+)|\1|')
 fi
 
 
 MODEL_SIZE=$1
 
-if [ ! -n "$MODEL_SIZE" ]; then
+if [ -z "$MODEL_SIZE" ]; then
     MODEL_SIZE=7
 fi
 
 TP_SIZE=$2
 
-if [ ! -n "$TP_SIZE" ]; then
+if [ -z "$TP_SIZE" ]; then
     TP_SIZE=1
 fi
 
