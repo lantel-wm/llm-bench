@@ -13,9 +13,7 @@ On the client side, run:
     python benchmarks/benchmark_serving.py \
         --backend <backend> \
         --model <your_model> \
-        --dataset-name sharegpt \
         --dataset-path <path to dataset> \
-        --request-rate <request_rate> \ # By default <request_rate> is inf
         --num-prompts <num_prompts> # By default <num_prompts> is 1000
 """
 import argparse
@@ -189,36 +187,18 @@ def sample_sonnet_requests(
 
 async def get_request_async(
     input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
 ) -> AsyncGenerator[Tuple[str, int, int], None]:
     input_requests = iter(input_requests)
     for request in input_requests:
         yield request
-
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        await asyncio.sleep(interval)
         
 
 def get_request(
     input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
 ):
     input_requests = iter(input_requests)
     for request in input_requests:
         yield request
-
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        time.sleep(interval)
 
 
 def calculate_metrics(
@@ -359,18 +339,16 @@ async def benchmark_async(
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
     use_beam_search: bool,
-    request_rate: float,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    print(f"Traffic request rate: {request_rate}")
 
     benchmark_start_time = time.perf_counter()
     tasks = []
-    async for request in get_request_async(input_requests, request_rate):
+    async for request in get_request_async(input_requests):
         prompt, prompt_len, output_len = request
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -405,7 +383,6 @@ def benchmark(
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
     use_beam_search: bool,
-    request_rate: float,
     thread_id: int = -1,
 ):
     if backend in REQUEST_FUNCS:
@@ -416,7 +393,7 @@ def benchmark(
 
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request in get_request(input_requests, request_rate):
+    for request in get_request(input_requests):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -430,29 +407,14 @@ def benchmark(
             best_of=best_of,
             use_beam_search=use_beam_search,
         )
-                
         outputs.append(request_func(request_func_input=request_func_input))
         
-
-    if thread_id == -1:
-        benchmark_duration = time.perf_counter() - benchmark_start_time
-        
-        metrics, actual_output_lens = calculate_metrics(
-            input_requests=input_requests,
-            outputs=outputs,
-            dur_s=benchmark_duration,
-            tokenizer=tokenizer,
-        )
-
-        return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
-    
-    else:
-        return outputs
+    return outputs
 
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search, request_rate):
+                 best_of, use_beam_search):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -463,7 +425,6 @@ class benchThread(threading.Thread):
         self.input_requests = input_requests
         self.best_of = best_of
         self.use_beam_search = use_beam_search
-        self.request_rate = request_rate
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -475,7 +436,6 @@ class benchThread(threading.Thread):
                 input_requests=self.input_requests,
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
-                request_rate=self.request_rate,
                 thread_id=self.thread_id,
             )
         
@@ -488,168 +448,55 @@ def main(args: argparse.Namespace):
     print(args)
     assert args.num_threads > 0, "Number of threads must be greater than 0."
     
-    if args.seed is not None:
-        random.seed(args.seed)
-        np.random.seed(args.seed)
-
     backend = args.backend
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    if args.base_url is not None:
-        api_url = f"{args.base_url}{args.endpoint}"
-    else:
-        api_url = f"http://{args.host}:{args.port}{args.endpoint}"
+    api_url = f"{args.base_url}{args.endpoint}"
+    if not api_url.startswith("http"):
+        api_url = f"http://{api_url}"
+    
+    tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
-    tokenizer = get_tokenizer(tokenizer_id,
-                              trust_remote_code=args.trust_remote_code)
+    # sample requests
+    input_request = [sample_sharegpt_requests(
+        dataset_path=args.dataset_path,
+        num_requests=args.num_prompts,
+        tokenizer=tokenizer,
+        fixed_output_len=args.sharegpt_output_len,
+    ) for _ in range(args.num_threads)]
+    input_requests = sum(input_request, [])                
 
-    if args.dataset is not None:
-        warnings.warn(
-            "The '--dataset' argument will be deprecated in the next "
-            "release. Please use '--dataset-name' and "
-            "'--dataset-path' in the future runs.",
-            stacklevel=2)
-        input_requests = sample_sharegpt_requests(
-            dataset_path=args.dataset,
-            num_requests=args.num_prompts,
-            tokenizer=tokenizer,
-            fixed_output_len=args.sharegpt_output_len,
-        )
+    # start benchmark
+    benchmark_start_time = time.perf_counter()
+    threads = []
+    for i in range(args.num_threads):
+        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
+                                args.best_of, args.use_beam_search)
+        thread.start()
+        threads.append(thread)
 
-    elif args.dataset_name == "sharegpt":
-        if args.num_prompts * args.num_threads < 80000:
-            input_requests = sample_sharegpt_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts * args.num_threads,
-                tokenizer=tokenizer,
-                fixed_output_len=args.sharegpt_output_len,
-            )
-        else:
-            input_request = [sample_sharegpt_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts,
-                tokenizer=tokenizer,
-                fixed_output_len=args.sharegpt_output_len,
-            ) for _ in range(args.num_threads)]
-            input_requests = sum(input_request, [])                
+    for thread in threads:
+        thread.join()
+    benchmark_duration = time.perf_counter() - benchmark_start_time
+
+    # gather benchmark result
+    all_outputs = []
+    for thread in threads:
+        outputs = thread.get_result()
+        all_outputs += outputs
         
-    elif args.dataset_name == "sonnet":
-        # Do not format the prompt, pass to message directly
-        if args.backend == "openai-chat":
-            input_requests = sample_sonnet_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts,
-                input_len=args.sonnet_input_len,
-                output_len=args.sonnet_output_len,
-                prefix_len=args.sonnet_prefix_len,
-                tokenizer=tokenizer,
-            )
-            input_requests = [(prompt, prompt_len, output_len)
-                              for prompt, prompt_formatted, prompt_len,
-                              output_len in input_requests]
-        else:
-            assert (
-                tokenizer.chat_template or tokenizer.default_chat_template
-            ), "Tokenizer/model must have chat template for sonnet dataset."
-            input_requests = sample_sonnet_requests(
-                dataset_path=args.dataset_path,
-                num_requests=args.num_prompts,
-                input_len=args.sonnet_input_len,
-                output_len=args.sonnet_output_len,
-                prefix_len=args.sonnet_prefix_len,
-                tokenizer=tokenizer,
-            )
-            input_requests = [(prompt_formatted, prompt_len, output_len)
-                              for prompt, prompt_formatted, prompt_len,
-                              output_len in input_requests]
-
-    else:
-        raise ValueError(f"Unknown dataset: {args.dataset_name}")
-
-    if args.enable_async == 1:
-        benchmark_result = asyncio.run(
-            benchmark_async(
-                backend=backend,
-                api_url=api_url,
-                model_id=model_id,
-                tokenizer=tokenizer,
-                input_requests=input_requests,
-                best_of=args.best_of,
-                use_beam_search=args.use_beam_search,
-                request_rate=args.request_rate,
-            ))
-    else:
-        benchmark_start_time = time.perf_counter()
-        threads = []
-        for i in range(args.num_threads):
-            thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
-                                    args.best_of, args.use_beam_search, args.request_rate)
-            thread.start()
-            threads.append(thread)
-
-        for thread in threads:
-            thread.join()
-        benchmark_duration = time.perf_counter() - benchmark_start_time
-
-        all_outputs = []
-        for thread in threads:
-            outputs = thread.get_result()
-            print(f"len(outputs): {len(outputs)}, thread_id: {thread.thread_id}")
-            all_outputs += outputs
-            
-        metrics, actual_output_lens = calculate_metrics(
-            input_requests=input_requests,
-            outputs=all_outputs,
-            dur_s=benchmark_duration,
-            tokenizer=tokenizer,
-        )
-        benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
-
-    # Save config and results to json
-    if args.save_result:
-        result_json = {}
-
-        # Setup
-        current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
-        result_json["date"] = current_dt
-        result_json["backend"] = backend
-        result_json["model_id"] = model_id
-        result_json["tokenizer_id"] = tokenizer_id
-        result_json["best_of"] = args.best_of
-        result_json["use_beam_search"] = args.use_beam_search
-        result_json["num_prompts"] = args.num_prompts
-
-        # Metadata
-        if args.metadata:
-            for item in args.metadata:
-                if "=" in item:
-                    kvstring = item.split("=")
-                    result_json[kvstring[0].strip()] = kvstring[1].strip()
-                else:
-                    raise ValueError(
-                        "Invalid metadata format. Please use KEY=VALUE format."
-                    )
-
-        # Traffic
-        result_json["request_rate"] = (
-            args.request_rate if args.request_rate < float("inf") else "inf")
-
-        # Merge with benchmark result
-        result_json = {**result_json, **benchmark_result}
-
-        # Save to file
-        base_model_id = model_id.split("/")[-1]
-        file_name = f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"  #noqa
-        if args.result_dir:
-            file_name = os.path.join(args.result_dir, file_name)
-        with open(file_name, "w") as outfile:
-            json.dump(result_json, outfile)
+    metrics, actual_output_lens = calculate_metrics(
+        input_requests=input_requests,
+        outputs=all_outputs,
+        dur_s=benchmark_duration,
+        tokenizer=tokenizer,
+    )
+    benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput.")
+    parser = argparse.ArgumentParser(description="Benchmark the online serving throughput.")
     parser.add_argument(
         "--backend",
         type=str,
@@ -660,22 +507,14 @@ if __name__ == "__main__":
         "--base-url",
         type=str,
         default=None,
+        required=True,
         help="Server or API base url if not using http host and port.",
     )
-    parser.add_argument("--host", type=str, default="localhost")
-    parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
         "--endpoint",
         type=str,
         default="/v1/completions",
         help="API endpoint.",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=None,
-        help="Path to the ShareGPT dataset, will be deprecated in the "
-        "next release.",
     )
     parser.add_argument(
         "--dataset-name",
@@ -721,64 +560,9 @@ if __name__ == "__main__":
         help="Output length for each request. Overrides the output length "
         "from the ShareGPT dataset.")
     parser.add_argument(
-        "--sonnet-input-len",
-        type=int,
-        default=550,
-        help=
-        "Number of input tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-output-len",
-        type=int,
-        default=150,
-        help=
-        "Number of output tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-prefix-len",
-        type=int,
-        default=200,
-        help=
-        "Number of prefix tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument(
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
-    )
-    parser.add_argument(
-        "--save-result",
-        action="store_true",
-        help="Specify to save benchmark results to a json file",
-    )
-    parser.add_argument(
-        "--metadata",
-        metavar="KEY=VALUE",
-        nargs="*",
-        help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
-        "for metadata of this run to be saved in the result JSON file "
-        "for record keeping purposes.",
-    )
-    parser.add_argument(
-        "--result-dir",
-        type=str,
-        default=None,
-        help="Specify directory to save benchmark json results."
-        "If not specified, results are saved in the current directory.",
-    )
-    parser.add_argument(
-        "--enable-async",
-        action="store_true",
     )
     parser.add_argument(
         "--num-threads",

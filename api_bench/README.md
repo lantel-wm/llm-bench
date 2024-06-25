@@ -11,8 +11,7 @@ wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/r
 
 设置环境变量：
 ```shell
-export VLLM_SERVER_HOST=10.198.31.25
-export VLLM_SERVER_PORT=8000
+export VLLM_SERVER_URL=http://10.198.31.25:8000
 export BENCHMARK_LLM=${REPO_PATH}/api_bench/python/benchmark_serving.py
 export DATASET_PATH=${REPO_PATH}/api_bench/ShareGPT_V3_unfiltered_cleaned_split.json
 ```
