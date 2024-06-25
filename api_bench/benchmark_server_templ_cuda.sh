@@ -1,3 +1,5 @@
+#!/bin/bash
+
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
@@ -14,7 +16,7 @@ fi
 
 function check_server_status() {
     local url="http://${VLLM_SERVER_HOST}:${VLLM_SERVER_PORT}/v1/models"
-    response=$(curl -s ${url})
+    response=$(curl -s "${url}")
     
     if [[ $response == *"\"object\":\"list\""* ]]; then
         # echo "Server started successfully with PID ${SERVER_PID}"
@@ -27,12 +29,12 @@ function check_server_status() {
 
 MODEL_SIZE=$1
 TP_SIZE=$2
-SERVER_PID=`bash $PERF_BASE_PATH/start_server.sh $MODEL_SIZE $TP_SIZE`
+SERVER_PID=$(bash "$PERF_BASE_PATH/start_server.sh" "$MODEL_SIZE" "$TP_SIZE")
 
 if [ ! -n "$SERVER_PID" ]; then
     echo "[ERROR] SERVER START FAILED"
 else
-    SERVER_PID=$(echo $SERVER_PID | grep -oP "SERVER PID: \K[0-9]+")
+    SERVER_PID=$(echo "$SERVER_PID" | grep -oP "SERVER PID: \K[0-9]+")
 
     attempt=20
     while [ $attempt -gt 0 ]; do

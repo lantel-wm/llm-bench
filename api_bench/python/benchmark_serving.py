@@ -46,7 +46,7 @@ class BenchmarkMetrics:
     total_input: int
     total_output: int
     request_throughput: float
-    inout_throughput: float
+    in_out_throughput: float
     output_throughput: float
     
     min_ttft_ms: float
@@ -338,7 +338,7 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.successful_rate},"
     csv_line += f"{metrics.request_throughput},"
     csv_line += f"{metrics.output_throughput},"
-    csv_line += f"{metrics.inout_throughput},"
+    csv_line += f"{metrics.in_out_throughput},"
     csv_line += f"{metrics.min_ttft_ms},"
     csv_line += f"{metrics.max_ttft_ms},"
     csv_line += f"{metrics.mean_ttft_ms},"
@@ -365,14 +365,26 @@ def dump_metrics_and_results(
         "total_input_tokens": metrics.total_input,
         "total_output_tokens": metrics.total_output,
         "request_throughput": metrics.request_throughput,
-        "input_throughput": metrics.input_throughput,
+        "in_out_throughput": metrics.in_out_throughput,
         "output_throughput": metrics.output_throughput,
+        "min_ttft_ms": metrics.min_ttft_ms,
+        "max_ttft_ms": metrics.max_ttft_ms,
         "mean_ttft_ms": metrics.mean_ttft_ms,
         "median_ttft_ms": metrics.median_ttft_ms,
+        "p90_ttft_ms": metrics.p90_ttft_ms,
         "p99_ttft_ms": metrics.p99_ttft_ms,
+        "min_tpot_ms": metrics.min_tpot_ms,
+        "max_tpot_ms": metrics.max_tpot_ms,
         "mean_tpot_ms": metrics.mean_tpot_ms,
         "median_tpot_ms": metrics.median_tpot_ms,
+        "p90_tpot_ms": metrics.p90_tpot_ms,
         "p99_tpot_ms": metrics.p99_tpot_ms,
+        "min_e2e_ms": metrics.min_e2e_ms,
+        "max_e2e_ms": metrics.max_e2e_ms,
+        "mean_e2e_ms": metrics.mean_e2e_ms,
+        "median_e2e_ms": metrics.median_e2e_ms,
+        "p90_e2e_ms": metrics.p90_e2e_ms,
+        "p99_e2e_ms": metrics.p99_e2e_ms,
         "input_lens": [output.prompt_len for output in outputs],
         "output_lens": actual_output_lens,
         "ttfts": [output.ttft for output in outputs],
@@ -573,12 +585,21 @@ def main(args: argparse.Namespace):
         )
 
     elif args.dataset_name == "sharegpt":
-        input_requests = sample_sharegpt_requests(
-            dataset_path=args.dataset_path,
-            num_requests=args.num_prompts * args.num_threads,
-            tokenizer=tokenizer,
-            fixed_output_len=args.sharegpt_output_len,
-        )
+        if args.num_prompts * args.num_threads < 80000:
+            input_requests = sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts * args.num_threads,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            )
+        else:
+            input_request = [sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            ) for _ in range(args.num_threads)]
+            input_requests = sum(input_request, [])                
         
     elif args.dataset_name == "sonnet":
         # Do not format the prompt, pass to message directly

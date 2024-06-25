@@ -1,53 +1,55 @@
+#!/bin/bash
+
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
-if [ ! -n "$BENCHMARK_LLM" ]; then
+if [ -z "$BENCHMARK_LLM" ]; then
     echo "[ERROR] please set env BENCHMARK_LLM to the absolute path of benchmark_serving.py script"
     exit 1
 fi
 
-if [ ! -n "$DATASET_PATH" ]; then
+if [ -z "$DATASET_PATH" ]; then
     echo "[ERROR] please set env DATASET_PATH to the dataset path"
     exit 1
 fi
 
-if [ ! -n "$VLLM_SERVER_HOST" ];then
+if [ -z "$VLLM_SERVER_HOST" ];then
     echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server host"
     exit 1
 fi
 
-if [ ! -n "$VLLM_SERVER_PORT" ];then
+if [ -z "$VLLM_SERVER_PORT" ];then
     echo "[ERROR] please set env VLLM_SERVER_PORT to the vllm server port"
     exit 1
 fi
 
 MODEL_SIZE=$1
 
-if [ ! -n "$MODEL_SIZE" ]; then
+if [ -z "$MODEL_SIZE" ]; then
     MODEL_SIZE=7
 fi
 
 TP_SIZE=$2
 
-if [ ! -n "$TP_SIZE" ]; then
+if [ -z "$TP_SIZE" ]; then
     TP_SIZE=1
 fi
 
 PROMPTS=$3
 
-if [ ! -n "$PROMPTS" ]; then
+if [ -z "$PROMPTS" ]; then
     PROMPTS=1000
 fi
 
 CLIENTS=$4
 
-if [ ! -n "$CLIENTS" ]; then
+if [ -z "$CLIENTS" ]; then
     CLIENTS=1
 fi
 
 STOP_TIME=$5
 
-if [ ! -n "$STOP_TIME" ]; then
+if [ -z "$STOP_TIME" ]; then
     STOP_TIME=300
 fi
 
