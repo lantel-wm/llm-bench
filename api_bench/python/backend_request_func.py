@@ -40,7 +40,6 @@ class RequestFuncOutput:
 
 async def async_request_tgi(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith("generate_stream")
@@ -97,14 +96,11 @@ async def async_request_tgi(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-        if pbar:
-            pbar.update(1)
         return output
 
 
 async def async_request_trt_llm(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith("generate_stream")
@@ -163,14 +159,11 @@ async def async_request_trt_llm(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-        if pbar:
-            pbar.update(1)
         return output
 
 
 async def async_request_deepspeed_mii(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
         assert request_func_input.best_of == 1
@@ -207,14 +200,11 @@ async def async_request_deepspeed_mii(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-        if pbar:
-            pbar.update(1)
         return output
 
 
 async def async_request_openai_completions(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith(
@@ -286,14 +276,11 @@ async def async_request_openai_completions(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-    if pbar:
-        pbar.update(1)
     return output
 
 
 async def async_request_openai_chat_completions(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith(
@@ -370,8 +357,6 @@ async def async_request_openai_chat_completions(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-    if pbar:
-        pbar.update(1)
     return output
 
 
@@ -395,7 +380,6 @@ ASYNC_REQUEST_FUNCS = {
 
 def request_openai_completions(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith(
@@ -467,8 +451,6 @@ def request_openai_completions(
         exc_info = sys.exc_info()
         output.error = "".join(traceback.format_exception(*exc_info))
 
-    if pbar:
-        pbar.update(1)
     return output
 
 REQUEST_FUNCS = {
