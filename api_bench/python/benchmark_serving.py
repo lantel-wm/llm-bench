@@ -292,47 +292,6 @@ def dump_metrics_and_results(
     outputs: List[RequestFuncOutput], 
     benchmark_duration: float
 ) -> dict:
-    # print("{s:{c}^{n}}".format(s=' Serving Benchmark Result ', n=50, c='='))
-    # print("{:<40} {:<10}".format("Successful requests:", metrics.completed))
-    # print("{:<40} {:<10.2f}".format("Successful rate:", metrics.successful_rate))
-    # print("{:<40} {:<10.2f}".format("Benchmark duration (s):",
-    #                                 benchmark_duration))
-    # print("{:<40} {:<10}".format("Total input tokens:", metrics.total_input))
-    # print("{:<40} {:<10}".format("Total generated tokens:",
-    #                             metrics.total_output))
-    # print("{:<40} {:<10.2f}".format("Request throughput (req/s):",
-    #                                 metrics.request_throughput))
-    # print("{:<40} {:<10.2f}".format("Input token throughput (tok/s):",
-    #                                 metrics.input_throughput))
-    # print("{:<40} {:<10.2f}".format("Output token throughput (tok/s):",
-    #                                 metrics.output_throughput))
-    
-    # print("{s:{c}^{n}}".format(s='Time to First Token', n=50, c='-'))
-    # print("{:<40} {:<10.2f}".format("Min TTFT (ms):", metrics.min_ttft_ms))
-    # print("{:<40} {:<10.2f}".format("Max TTFT (ms):", metrics.max_ttft_ms))
-    # print("{:<40} {:<10.2f}".format("Mean TTFT (ms):", metrics.mean_ttft_ms))
-    # print("{:<40} {:<10.2f}".format("Median TTFT (ms):", metrics.median_ttft_ms))
-    # print("{:<40} {:<10.2f}".format("P90 TTFT (ms):", metrics.p90_ttft_ms))
-    # print("{:<40} {:<10.2f}".format("P99 TTFT (ms):", metrics.p99_ttft_ms))
-    
-    # print("{s:{c}^{n}}".format(s='Time per Output Token (excl. 1st token)', n=50, c='-'))
-    # print("{:<40} {:<10.2f}".format("Min TPOT (ms):", metrics.min_tpot_ms))
-    # print("{:<40} {:<10.2f}".format("Max TPOT (ms):", metrics.max_tpot_ms))
-    # print("{:<40} {:<10.2f}".format("Mean TPOT (ms):", metrics.mean_tpot_ms))
-    # print("{:<40} {:<10.2f}".format("Median TPOT (ms):", metrics.median_tpot_ms))
-    # print("{:<40} {:<10.2f}".format("P90 TPOT (ms):", metrics.p90_tpot_ms))
-    # print("{:<40} {:<10.2f}".format("P99 TPOT (ms):", metrics.p99_tpot_ms))
-    
-    # print("{s:{c}^{n}}".format(s='Time per Request', n=50, c='-'))
-    # print("{:<40} {:<10.2f}".format("Min TPR (ms):", metrics.min_tpr_ms))
-    # print("{:<40} {:<10.2f}".format("Max TPR (ms):", metrics.max_tpr_ms))
-    # print("{:<40} {:<10.2f}".format("Mean TPR (ms):", metrics.mean_tpr_ms))
-    # print("{:<40} {:<10.2f}".format("Median TPR (ms):", metrics.median_tpr_ms))
-    # print("{:<40} {:<10.2f}".format("P90 TPR (ms):", metrics.p90_tpr_ms))
-    # print("{:<40} {:<10.2f}".format("P99 TPR (ms):", metrics.p99_tpr_ms))
-    
-    # print("=" * 50)
-    
     # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
     csv_line += f"{metrics.successful_rate},"
@@ -463,22 +422,13 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    # print(f"Thread {thread_id} launched. Traffic request rate: {request_rate}")
 
-    # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
-    if disable_tqdm:
-        pbar = None
-    else:
-        if thread_id == -1:
-            pbar = tqdm(total=len(input_requests))
-        else:
-            pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
-    
+    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
+
     benchmark_start_time = time.perf_counter()
     outputs = []
     for request in get_request(input_requests, request_rate):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
-            # print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
             break
         
         prompt, prompt_len, output_len = request
