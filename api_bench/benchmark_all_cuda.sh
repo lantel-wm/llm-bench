@@ -57,19 +57,19 @@ _MODE_LIST=(fp16)
 _7B_TP_LIST=(1)
 _13B_TP_LIST=(2)
 _65B_TP_LIST=(8)
-_70B_TP_LIST=(8)
+_70B_TP_LIST=(4 8)
 
-_NUM_CLIENTS_LIST=(1 2 4 8 16 32 48 64 80 96 112 128 160 192 224 256)
+_NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
 
 for MODE in "${_MODE_LIST[@]}"; do
 
-# for GPUS in "${_7B_TP_LIST[@]}"; do
-#     launch_server_and_test 7 "$GPUS" 1000 10 "$MODE"
-# done
-
-for GPUS in "${_13B_TP_LIST[@]}"; do
-    launch_server_and_test 13 "$GPUS" 1000 10 "$MODE"
+for GPUS in "${_7B_TP_LIST[@]}"; do
+    launch_server_and_test 7 "$GPUS" 1000 10 "$MODE"
 done
+
+# for GPUS in "${_13B_TP_LIST[@]}"; do
+#     launch_server_and_test 13 "$GPUS" 1000 10 "$MODE"
+# done
 
 # for GPUS in "${_65B_TP_LIST[@]}"; do
 #     launch_server_and_test 65 "$GPUS" 1000 10 "$MODE"
@@ -80,3 +80,9 @@ done
 # done
 
 done
+
+# 留三位小数
+# 数据集的平均input output长度
+# min_prompt_len, max_prompt_len, max_total_len, min_prompt_len
+# input 长度，total len 的柱状图
+# sample sharegpt 指定任意轮对话

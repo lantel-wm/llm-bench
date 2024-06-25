@@ -33,7 +33,6 @@ from typing import AsyncGenerator, List, Optional, Tuple
 import numpy as np
 from backend_request_func import (ASYNC_REQUEST_FUNCS, REQUEST_FUNCS,
                                   RequestFuncInput, RequestFuncOutput)
-from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
@@ -294,29 +293,29 @@ def dump_metrics_and_results(
 ) -> dict:
     # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
-    csv_line += f"{metrics.successful_rate},"
-    csv_line += f"{metrics.request_throughput},"
-    csv_line += f"{metrics.output_throughput},"
-    csv_line += f"{metrics.in_out_throughput},"
-    csv_line += f"{metrics.min_ttft_ms},"
-    csv_line += f"{metrics.max_ttft_ms},"
-    csv_line += f"{metrics.mean_ttft_ms},"
-    csv_line += f"{metrics.median_ttft_ms},"
-    csv_line += f"{metrics.p90_ttft_ms},"
-    csv_line += f"{metrics.p99_ttft_ms},"
-    csv_line += f"{metrics.min_tpot_ms},"
-    csv_line += f"{metrics.max_tpot_ms},"
-    csv_line += f"{metrics.mean_tpot_ms},"
-    csv_line += f"{metrics.median_tpot_ms},"
-    csv_line += f"{metrics.p90_tpot_ms},"
-    csv_line += f"{metrics.p99_tpot_ms},"
-    csv_line += f"{metrics.min_e2e_ms},"
-    csv_line += f"{metrics.max_e2e_ms},"
-    csv_line += f"{metrics.mean_e2e_ms},"
-    csv_line += f"{metrics.median_e2e_ms},"
-    csv_line += f"{metrics.p90_e2e_ms},"
-    csv_line += f"{metrics.p99_e2e_ms}"
-    print("CSV format output:", csv_line)
+    csv_line += f"{metrics.successful_rate:.3f},"
+    csv_line += f"{metrics.request_throughput:.3f},"
+    csv_line += f"{metrics.output_throughput:.3f},"
+    csv_line += f"{metrics.in_out_throughput:.3f},"
+    csv_line += f"{metrics.min_ttft_ms:.3f},"
+    csv_line += f"{metrics.max_ttft_ms:.3f},"
+    csv_line += f"{metrics.mean_ttft_ms:.3f},"
+    csv_line += f"{metrics.median_ttft_ms:.3f},"
+    csv_line += f"{metrics.p90_ttft_ms:.3f},"
+    csv_line += f"{metrics.p99_ttft_ms:.3f},"
+    csv_line += f"{metrics.min_tpot_ms:.3f},"
+    csv_line += f"{metrics.max_tpot_ms:.3f},"
+    csv_line += f"{metrics.mean_tpot_ms:.3f},"
+    csv_line += f"{metrics.median_tpot_ms:.3f},"
+    csv_line += f"{metrics.p90_tpot_ms:.3f},"
+    csv_line += f"{metrics.p99_tpot_ms:.3f},"
+    csv_line += f"{metrics.min_e2e_ms:.3f},"
+    csv_line += f"{metrics.max_e2e_ms:.3f},"
+    csv_line += f"{metrics.mean_e2e_ms:.3f},"
+    csv_line += f"{metrics.median_e2e_ms:.3f},"
+    csv_line += f"{metrics.p90_e2e_ms:.3f},"
+    csv_line += f"{metrics.p99_e2e_ms:.3f}"
+    print(f"CSV format output:{csv_line}")
 
     return {
         "duration": benchmark_duration,
@@ -361,7 +360,6 @@ async def benchmark_async(
     best_of: int,
     use_beam_search: bool,
     request_rate: float,
-    disable_tqdm: bool,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
@@ -369,8 +367,6 @@ async def benchmark_async(
         raise ValueError(f"Unknown backend: {backend}")
 
     print(f"Traffic request rate: {request_rate}")
-
-    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     tasks = []
@@ -387,12 +383,8 @@ async def benchmark_async(
         )
         tasks.append(
             asyncio.create_task(
-                request_func(request_func_input=request_func_input,
-                             pbar=pbar)))
+                request_func(request_func_input=request_func_input)))
     outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
-
-    if not disable_tqdm:
-        pbar.close()
 
     benchmark_duration = time.perf_counter() - benchmark_start_time
     
@@ -414,7 +406,6 @@ def benchmark(
     best_of: int,
     use_beam_search: bool,
     request_rate: float,
-    disable_tqdm: bool,
     thread_id: int = -1,
 ):
     if backend in REQUEST_FUNCS:
@@ -422,8 +413,6 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-
-    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     outputs = []
@@ -442,12 +431,8 @@ def benchmark(
             use_beam_search=use_beam_search,
         )
                 
-        outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
-
+        outputs.append(request_func(request_func_input=request_func_input))
         
-    if not disable_tqdm:
-        pbar.close()
-
 
     if thread_id == -1:
         benchmark_duration = time.perf_counter() - benchmark_start_time
@@ -467,7 +452,7 @@ def benchmark(
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search, request_rate, disable_tqdm):
+                 best_of, use_beam_search, request_rate):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -479,7 +464,6 @@ class benchThread(threading.Thread):
         self.best_of = best_of
         self.use_beam_search = use_beam_search
         self.request_rate = request_rate
-        self.disable_tqdm = disable_tqdm
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -492,7 +476,6 @@ class benchThread(threading.Thread):
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
                 request_rate=self.request_rate,
-                disable_tqdm=self.disable_tqdm,
                 thread_id=self.thread_id,
             )
         
@@ -595,14 +578,13 @@ def main(args: argparse.Namespace):
                 best_of=args.best_of,
                 use_beam_search=args.use_beam_search,
                 request_rate=args.request_rate,
-                disable_tqdm=args.disable_tqdm,
             ))
     else:
         benchmark_start_time = time.perf_counter()
         threads = []
         for i in range(args.num_threads):
             thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
-                                    args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
+                                    args.best_of, args.use_beam_search, args.request_rate)
             thread.start()
             threads.append(thread)
 
@@ -773,11 +755,6 @@ if __name__ == "__main__":
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
-    )
-    parser.add_argument(
-        "--disable-tqdm",
-        action="store_true",
-        help="Specify to disable tqdm progress bar.",
     )
     parser.add_argument(
         "--save-result",
