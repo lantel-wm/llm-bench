@@ -21,7 +21,6 @@ On the client side, run:
 import argparse
 import asyncio
 import threading
-import multiprocessing
 import json
 import os
 import random
@@ -43,10 +42,11 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 @dataclass
 class BenchmarkMetrics:
     completed: int
+    successful_rate: float
     total_input: int
     total_output: int
     request_throughput: float
-    input_throughput: float
+    in_out_throughput: float
     output_throughput: float
     
     min_ttft_ms: float
@@ -63,12 +63,12 @@ class BenchmarkMetrics:
     p90_tpot_ms: float
     p99_tpot_ms: float
     
-    min_tpr_ms: float
-    max_tpr_ms: float
-    mean_tpr_ms: float
-    median_tpr_ms: float
-    p90_tpr_ms: float
-    p99_tpr_ms: float
+    min_e2e_ms: float
+    max_e2e_ms: float
+    mean_e2e_ms: float
+    median_e2e_ms: float
+    p90_e2e_ms: float
+    p99_e2e_ms: float
 
 
 def sample_sharegpt_requests(
@@ -77,6 +77,7 @@ def sample_sharegpt_requests(
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
 ) -> List[Tuple[str, int, int]]:
+    # print("[I] Sampling requests...")
     if fixed_output_len is not None and fixed_output_len < 4:
         raise ValueError("output_len too small")
 
@@ -228,34 +229,37 @@ def calculate_metrics(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Tuple[BenchmarkMetrics, List[int]]:
     actual_output_lens = []
-    total_input = 0
+    total_input_tokens = 0
     completed = 0
     tpots = []
     ttfts = []
-    tprs = []
+    e2es = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
-            total_input += input_requests[i][1]
+            total_input_tokens += input_requests[i][1]
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
                 
             ttfts.append(outputs[i].ttft)
-            tprs.append(outputs[i].latency)
+            e2es.append(outputs[i].latency)
             completed += 1
             
         else:
             actual_output_lens.append(0)
 
+    total_output_tokens = sum(actual_output_lens)
+    
     metrics = BenchmarkMetrics(
         completed=completed,
-        total_input=total_input,
-        total_output=sum(actual_output_lens),
+        successful_rate=completed / len(outputs),
+        total_input=total_input_tokens,
+        total_output=total_output_tokens,
         request_throughput=completed / dur_s,
-        input_throughput=total_input / dur_s,
-        output_throughput=sum(actual_output_lens) / dur_s,
+        in_out_throughput=(total_input_tokens + total_output_tokens) / dur_s,
+        output_throughput=total_output_tokens / dur_s,
         
         min_ttft_ms=np.min(ttfts or 0) * 1000,  # ttfts is empty if streaming is not supported by backend
         max_ttft_ms=np.max(ttfts or 0) * 1000,
@@ -271,12 +275,12 @@ def calculate_metrics(
         p90_tpot_ms=np.percentile(tpots, 90) * 1000,
         p99_tpot_ms=np.percentile(tpots, 99) * 1000,
         
-        min_tpr_ms=np.min(tprs) * 1000,
-        max_tpr_ms=np.max(tprs) * 1000,
-        mean_tpr_ms=np.mean(tprs) * 1000,
-        median_tpr_ms=np.median(tprs) * 1000,
-        p90_tpr_ms=np.percentile(tprs, 90) * 1000,
-        p99_tpr_ms=np.percentile(tprs, 99) * 1000,
+        min_e2e_ms=np.min(e2es) * 1000,
+        max_e2e_ms=np.max(e2es) * 1000,
+        mean_e2e_ms=np.mean(e2es) * 1000,
+        median_e2e_ms=np.median(e2es) * 1000,
+        p90_e2e_ms=np.percentile(e2es, 90) * 1000,
+        p99_e2e_ms=np.percentile(e2es, 99) * 1000,
     )
 
     return metrics, actual_output_lens
@@ -288,45 +292,31 @@ def dump_metrics_and_results(
     outputs: List[RequestFuncOutput], 
     benchmark_duration: float
 ) -> dict:
-    print("{s:{c}^{n}}".format(s=' Serving Benchmark Result ', n=50, c='='))
-    print("{:<40} {:<10}".format("Successful requests:", metrics.completed))
-    print("{:<40} {:<10.2f}".format("Benchmark duration (s):",
-                                    benchmark_duration))
-    print("{:<40} {:<10}".format("Total input tokens:", metrics.total_input))
-    print("{:<40} {:<10}".format("Total generated tokens:",
-                                metrics.total_output))
-    print("{:<40} {:<10.2f}".format("Request throughput (req/s):",
-                                    metrics.request_throughput))
-    print("{:<40} {:<10.2f}".format("Input token throughput (tok/s):",
-                                    metrics.input_throughput))
-    print("{:<40} {:<10.2f}".format("Output token throughput (tok/s):",
-                                    metrics.output_throughput))
-    
-    print("{s:{c}^{n}}".format(s='Time to First Token', n=50, c='-'))
-    print("{:<40} {:<10.2f}".format("Min TTFT (ms):", metrics.min_ttft_ms))
-    print("{:<40} {:<10.2f}".format("Max TTFT (ms):", metrics.max_ttft_ms))
-    print("{:<40} {:<10.2f}".format("Mean TTFT (ms):", metrics.mean_ttft_ms))
-    print("{:<40} {:<10.2f}".format("Median TTFT (ms):", metrics.median_ttft_ms))
-    print("{:<40} {:<10.2f}".format("P90 TTFT (ms):", metrics.p90_ttft_ms))
-    print("{:<40} {:<10.2f}".format("P99 TTFT (ms):", metrics.p99_ttft_ms))
-    
-    print("{s:{c}^{n}}".format(s='Time per Output Token (excl. 1st token)', n=50, c='-'))
-    print("{:<40} {:<10.2f}".format("Min TPOT (ms):", metrics.min_tpot_ms))
-    print("{:<40} {:<10.2f}".format("Max TPOT (ms):", metrics.max_tpot_ms))
-    print("{:<40} {:<10.2f}".format("Mean TPOT (ms):", metrics.mean_tpot_ms))
-    print("{:<40} {:<10.2f}".format("Median TPOT (ms):", metrics.median_tpot_ms))
-    print("{:<40} {:<10.2f}".format("P90 TPOT (ms):", metrics.p90_tpot_ms))
-    print("{:<40} {:<10.2f}".format("P99 TPOT (ms):", metrics.p99_tpot_ms))
-    
-    print("{s:{c}^{n}}".format(s='Time per Request', n=50, c='-'))
-    print("{:<40} {:<10.2f}".format("Min TPR (ms):", metrics.min_tpr_ms))
-    print("{:<40} {:<10.2f}".format("Max TPR (ms):", metrics.max_tpr_ms))
-    print("{:<40} {:<10.2f}".format("Mean TPR (ms):", metrics.mean_tpr_ms))
-    print("{:<40} {:<10.2f}".format("Median TPR (ms):", metrics.median_tpr_ms))
-    print("{:<40} {:<10.2f}".format("P90 TPR (ms):", metrics.p90_tpr_ms))
-    print("{:<40} {:<10.2f}".format("P99 TPR (ms):", metrics.p99_tpr_ms))
-    
-    print("=" * 50)
+    # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
+    csv_line = ""
+    csv_line += f"{metrics.successful_rate},"
+    csv_line += f"{metrics.request_throughput},"
+    csv_line += f"{metrics.output_throughput},"
+    csv_line += f"{metrics.in_out_throughput},"
+    csv_line += f"{metrics.min_ttft_ms},"
+    csv_line += f"{metrics.max_ttft_ms},"
+    csv_line += f"{metrics.mean_ttft_ms},"
+    csv_line += f"{metrics.median_ttft_ms},"
+    csv_line += f"{metrics.p90_ttft_ms},"
+    csv_line += f"{metrics.p99_ttft_ms},"
+    csv_line += f"{metrics.min_tpot_ms},"
+    csv_line += f"{metrics.max_tpot_ms},"
+    csv_line += f"{metrics.mean_tpot_ms},"
+    csv_line += f"{metrics.median_tpot_ms},"
+    csv_line += f"{metrics.p90_tpot_ms},"
+    csv_line += f"{metrics.p99_tpot_ms},"
+    csv_line += f"{metrics.min_e2e_ms},"
+    csv_line += f"{metrics.max_e2e_ms},"
+    csv_line += f"{metrics.mean_e2e_ms},"
+    csv_line += f"{metrics.median_e2e_ms},"
+    csv_line += f"{metrics.p90_e2e_ms},"
+    csv_line += f"{metrics.p99_e2e_ms}"
+    print("CSV format output:", csv_line)
 
     return {
         "duration": benchmark_duration,
@@ -334,14 +324,26 @@ def dump_metrics_and_results(
         "total_input_tokens": metrics.total_input,
         "total_output_tokens": metrics.total_output,
         "request_throughput": metrics.request_throughput,
-        "input_throughput": metrics.input_throughput,
+        "in_out_throughput": metrics.in_out_throughput,
         "output_throughput": metrics.output_throughput,
+        "min_ttft_ms": metrics.min_ttft_ms,
+        "max_ttft_ms": metrics.max_ttft_ms,
         "mean_ttft_ms": metrics.mean_ttft_ms,
         "median_ttft_ms": metrics.median_ttft_ms,
+        "p90_ttft_ms": metrics.p90_ttft_ms,
         "p99_ttft_ms": metrics.p99_ttft_ms,
+        "min_tpot_ms": metrics.min_tpot_ms,
+        "max_tpot_ms": metrics.max_tpot_ms,
         "mean_tpot_ms": metrics.mean_tpot_ms,
         "median_tpot_ms": metrics.median_tpot_ms,
+        "p90_tpot_ms": metrics.p90_tpot_ms,
         "p99_tpot_ms": metrics.p99_tpot_ms,
+        "min_e2e_ms": metrics.min_e2e_ms,
+        "max_e2e_ms": metrics.max_e2e_ms,
+        "mean_e2e_ms": metrics.mean_e2e_ms,
+        "median_e2e_ms": metrics.median_e2e_ms,
+        "p90_e2e_ms": metrics.p90_e2e_ms,
+        "p99_e2e_ms": metrics.p99_e2e_ms,
         "input_lens": [output.prompt_len for output in outputs],
         "output_lens": actual_output_lens,
         "ttfts": [output.ttft for output in outputs],
@@ -420,24 +422,26 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    print(f"Thread {thread_id} launched. Traffic request rate: {request_rate}")
 
-    # pbar = None if disable_tqdm else tqdm(total=len(input_requests))
-    if disable_tqdm:
-        pbar = None
-    else:
-        if thread_id == -1:
-            pbar = tqdm(total=len(input_requests))
-        else:
-            pbar = tqdm(total=len(input_requests), postfix=f"Thread {thread_id}")
-    
+    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
+
     benchmark_start_time = time.perf_counter()
     outputs = []
     for request in get_request(input_requests, request_rate):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
-            print(f"[I] Thread {thread_id} stopped at {time.perf_counter() - benchmark_start_time} seconds.")
             break
-            
+        
+        prompt, prompt_len, output_len = request
+        request_func_input = RequestFuncInput(
+            model=model_id,
+            prompt=prompt,
+            api_url=api_url,
+            prompt_len=prompt_len,
+            output_len=output_len,
+            best_of=best_of,
+            use_beam_search=use_beam_search,
+        )
+                
         outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
 
         
@@ -531,12 +535,21 @@ def main(args: argparse.Namespace):
         )
 
     elif args.dataset_name == "sharegpt":
-        input_requests = sample_sharegpt_requests(
-            dataset_path=args.dataset_path,
-            num_requests=args.num_prompts * args.num_threads,
-            tokenizer=tokenizer,
-            fixed_output_len=args.sharegpt_output_len,
-        )
+        if args.num_prompts * args.num_threads < 80000:
+            input_requests = sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts * args.num_threads,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            )
+        else:
+            input_request = [sample_sharegpt_requests(
+                dataset_path=args.dataset_path,
+                num_requests=args.num_prompts,
+                tokenizer=tokenizer,
+                fixed_output_len=args.sharegpt_output_len,
+            ) for _ in range(args.num_threads)]
+            input_requests = sum(input_request, [])                
         
     elif args.dataset_name == "sonnet":
         # Do not format the prompt, pass to message directly
@@ -571,7 +584,7 @@ def main(args: argparse.Namespace):
     else:
         raise ValueError(f"Unknown dataset: {args.dataset_name}")
 
-    if args.num_threads == 1:
+    if args.enable_async == 1:
         benchmark_result = asyncio.run(
             benchmark_async(
                 backend=backend,
@@ -785,6 +798,10 @@ if __name__ == "__main__":
         default=None,
         help="Specify directory to save benchmark json results."
         "If not specified, results are saved in the current directory.",
+    )
+    parser.add_argument(
+        "--enable-async",
+        action="store_true",
     )
     parser.add_argument(
         "--num-threads",
