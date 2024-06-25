@@ -294,29 +294,29 @@ def dump_metrics_and_results(
 ) -> dict:
     # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
-    csv_line += f"{metrics.successful_rate},"
-    csv_line += f"{metrics.request_throughput},"
-    csv_line += f"{metrics.output_throughput},"
-    csv_line += f"{metrics.in_out_throughput},"
-    csv_line += f"{metrics.min_ttft_ms},"
-    csv_line += f"{metrics.max_ttft_ms},"
-    csv_line += f"{metrics.mean_ttft_ms},"
-    csv_line += f"{metrics.median_ttft_ms},"
-    csv_line += f"{metrics.p90_ttft_ms},"
-    csv_line += f"{metrics.p99_ttft_ms},"
-    csv_line += f"{metrics.min_tpot_ms},"
-    csv_line += f"{metrics.max_tpot_ms},"
-    csv_line += f"{metrics.mean_tpot_ms},"
-    csv_line += f"{metrics.median_tpot_ms},"
-    csv_line += f"{metrics.p90_tpot_ms},"
-    csv_line += f"{metrics.p99_tpot_ms},"
-    csv_line += f"{metrics.min_e2e_ms},"
-    csv_line += f"{metrics.max_e2e_ms},"
-    csv_line += f"{metrics.mean_e2e_ms},"
-    csv_line += f"{metrics.median_e2e_ms},"
-    csv_line += f"{metrics.p90_e2e_ms},"
-    csv_line += f"{metrics.p99_e2e_ms}"
-    print("CSV format output:", csv_line)
+    csv_line += f"{metrics.successful_rate:.3f},"
+    csv_line += f"{metrics.request_throughput:.3f},"
+    csv_line += f"{metrics.output_throughput:.3f},"
+    csv_line += f"{metrics.in_out_throughput:.3f},"
+    csv_line += f"{metrics.min_ttft_ms:.3f},"
+    csv_line += f"{metrics.max_ttft_ms:.3f},"
+    csv_line += f"{metrics.mean_ttft_ms:.3f},"
+    csv_line += f"{metrics.median_ttft_ms:.3f},"
+    csv_line += f"{metrics.p90_ttft_ms:.3f},"
+    csv_line += f"{metrics.p99_ttft_ms:.3f},"
+    csv_line += f"{metrics.min_tpot_ms:.3f},"
+    csv_line += f"{metrics.max_tpot_ms:.3f},"
+    csv_line += f"{metrics.mean_tpot_ms:.3f},"
+    csv_line += f"{metrics.median_tpot_ms:.3f},"
+    csv_line += f"{metrics.p90_tpot_ms:.3f},"
+    csv_line += f"{metrics.p99_tpot_ms:.3f},"
+    csv_line += f"{metrics.min_e2e_ms:.3f},"
+    csv_line += f"{metrics.max_e2e_ms:.3f},"
+    csv_line += f"{metrics.mean_e2e_ms:.3f},"
+    csv_line += f"{metrics.median_e2e_ms:.3f},"
+    csv_line += f"{metrics.p90_e2e_ms:.3f},"
+    csv_line += f"{metrics.p99_e2e_ms:.3f}"
+    print(f"CSV format output:{csv_line}")
 
     return {
         "duration": benchmark_duration,
@@ -680,28 +680,28 @@ if __name__ == "__main__":
         default=None,
         help="Server or API base url if not using http host and port.",
     )
-    parser.add_argument("--host", type=str, default="localhost")
-    parser.add_argument("--port", type=int, default=8000)
+    # parser.add_argument("--host", type=str, default="localhost")
+    # parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
         "--endpoint",
         type=str,
         default="/v1/completions",
         help="API endpoint.",
     )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=None,
-        help="Path to the ShareGPT dataset, will be deprecated in the "
-        "next release.",
-    )
-    parser.add_argument(
-        "--dataset-name",
-        type=str,
-        default="sharegpt",
-        choices=["sharegpt", "sonnet"],
-        help="Name of the dataset to benchmark on.",
-    )
+    # parser.add_argument(
+    #     "--dataset",
+    #     type=str,
+    #     default=None,
+    #     help="Path to the ShareGPT dataset, will be deprecated in the "
+    #     "next release.",
+    # )
+    # parser.add_argument(
+    #     "--dataset-name",
+    #     type=str,
+    #     default="sharegpt",
+    #     choices=["sharegpt", "sonnet"],
+    #     help="Name of the dataset to benchmark on.",
+    # )
     parser.add_argument("--dataset-path",
                         type=str,
                         default=None,
@@ -738,71 +738,71 @@ if __name__ == "__main__":
         default=None,
         help="Output length for each request. Overrides the output length "
         "from the ShareGPT dataset.")
-    parser.add_argument(
-        "--sonnet-input-len",
-        type=int,
-        default=550,
-        help=
-        "Number of input tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-output-len",
-        type=int,
-        default=150,
-        help=
-        "Number of output tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-prefix-len",
-        type=int,
-        default=200,
-        help=
-        "Number of prefix tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
-    parser.add_argument("--seed", type=int, default=None)
+    # parser.add_argument(
+    #     "--sonnet-input-len",
+    #     type=int,
+    #     default=550,
+    #     help=
+    #     "Number of input tokens per request, used only for sonnet dataset.",
+    # )
+    # parser.add_argument(
+    #     "--sonnet-output-len",
+    #     type=int,
+    #     default=150,
+    #     help=
+    #     "Number of output tokens per request, used only for sonnet dataset.",
+    # )
+    # parser.add_argument(
+    #     "--sonnet-prefix-len",
+    #     type=int,
+    #     default=200,
+    #     help=
+    #     "Number of prefix tokens per request, used only for sonnet dataset.",
+    # )
+    # parser.add_argument(
+    #     "--request-rate",
+    #     type=float,
+    #     default=float("inf"),
+    #     help="Number of requests per second. If this is inf, "
+    #     "then all the requests are sent at time 0. "
+    #     "Otherwise, we use Poisson process to synthesize "
+    #     "the request arrival times.",
+    # )
+    # parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
     )
-    parser.add_argument(
-        "--disable-tqdm",
-        action="store_true",
-        help="Specify to disable tqdm progress bar.",
-    )
-    parser.add_argument(
-        "--save-result",
-        action="store_true",
-        help="Specify to save benchmark results to a json file",
-    )
-    parser.add_argument(
-        "--metadata",
-        metavar="KEY=VALUE",
-        nargs="*",
-        help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
-        "for metadata of this run to be saved in the result JSON file "
-        "for record keeping purposes.",
-    )
-    parser.add_argument(
-        "--result-dir",
-        type=str,
-        default=None,
-        help="Specify directory to save benchmark json results."
-        "If not specified, results are saved in the current directory.",
-    )
-    parser.add_argument(
-        "--enable-async",
-        action="store_true",
-    )
+    # parser.add_argument(
+    #     "--disable-tqdm",
+    #     action="store_true",
+    #     help="Specify to disable tqdm progress bar.",
+    # )
+    # parser.add_argument(
+    #     "--save-result",
+    #     action="store_true",
+    #     help="Specify to save benchmark results to a json file",
+    # )
+    # parser.add_argument(
+    #     "--metadata",
+    #     metavar="KEY=VALUE",
+    #     nargs="*",
+    #     help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
+    #     "for metadata of this run to be saved in the result JSON file "
+    #     "for record keeping purposes.",
+    # )
+    # parser.add_argument(
+    #     "--result-dir",
+    #     type=str,
+    #     default=None,
+    #     help="Specify directory to save benchmark json results."
+    #     "If not specified, results are saved in the current directory.",
+    # )
+    # parser.add_argument(
+    #     "--enable-async",
+    #     action="store_true",
+    # )
     parser.add_argument(
         "--num-threads",
         type=int,
