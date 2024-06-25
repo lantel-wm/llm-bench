@@ -40,6 +40,8 @@ class BenchmarkMetrics:
     successful_rate: float
     total_input: int
     total_output: int
+    mean_input_tokens: float
+    mean_output_tokens: float
     request_throughput: float
     in_out_throughput: float
     output_throughput: float
@@ -156,6 +158,8 @@ def calculate_metrics(
         successful_rate=completed / len(outputs),
         total_input=total_input_tokens,
         total_output=total_output_tokens,
+        mean_input_tokens=total_input_tokens / completed,
+        mean_output_tokens=total_output_tokens / completed,
         request_throughput=completed / dur_s,
         in_out_throughput=(total_input_tokens + total_output_tokens) / dur_s,
         output_throughput=total_output_tokens / dur_s,
@@ -191,10 +195,12 @@ def dump_metrics_and_results(
     outputs: List[RequestFuncOutput], 
     benchmark_duration: float
 ):
-    # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
+    # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
     csv_line += f"{metrics.request_throughput:.3f},"
+    csv_line += f"{metrics.mean_input_tokens:.3f},"
+    csv_line += f"{metrics.mean_output_tokens:.3f},"
     csv_line += f"{metrics.output_throughput:.3f},"
     csv_line += f"{metrics.in_out_throughput:.3f},"
     csv_line += f"{metrics.min_ttft_ms:.3f},"
