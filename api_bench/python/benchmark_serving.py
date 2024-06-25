@@ -33,7 +33,6 @@ from typing import AsyncGenerator, List, Optional, Tuple
 import numpy as np
 from backend_request_func import (ASYNC_REQUEST_FUNCS, REQUEST_FUNCS,
                                   RequestFuncInput, RequestFuncOutput)
-from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
@@ -361,7 +360,6 @@ async def benchmark_async(
     best_of: int,
     use_beam_search: bool,
     request_rate: float,
-    disable_tqdm: bool,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
@@ -369,8 +367,6 @@ async def benchmark_async(
         raise ValueError(f"Unknown backend: {backend}")
 
     print(f"Traffic request rate: {request_rate}")
-
-    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     tasks = []
@@ -387,12 +383,8 @@ async def benchmark_async(
         )
         tasks.append(
             asyncio.create_task(
-                request_func(request_func_input=request_func_input,
-                             pbar=pbar)))
+                request_func(request_func_input=request_func_input)))
     outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
-
-    if not disable_tqdm:
-        pbar.close()
 
     benchmark_duration = time.perf_counter() - benchmark_start_time
     
@@ -414,7 +406,6 @@ def benchmark(
     best_of: int,
     use_beam_search: bool,
     request_rate: float,
-    disable_tqdm: bool,
     thread_id: int = -1,
 ):
     if backend in REQUEST_FUNCS:
@@ -422,8 +413,6 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-
-    pbar = None if disable_tqdm else tqdm(total=len(input_requests))
 
     benchmark_start_time = time.perf_counter()
     outputs = []
@@ -442,12 +431,8 @@ def benchmark(
             use_beam_search=use_beam_search,
         )
                 
-        outputs.append(request_func(request_func_input=request_func_input, pbar=pbar))
-
+        outputs.append(request_func(request_func_input=request_func_input))
         
-    if not disable_tqdm:
-        pbar.close()
-
 
     if thread_id == -1:
         benchmark_duration = time.perf_counter() - benchmark_start_time
@@ -467,7 +452,7 @@ def benchmark(
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search, request_rate, disable_tqdm):
+                 best_of, use_beam_search, request_rate):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -479,7 +464,6 @@ class benchThread(threading.Thread):
         self.best_of = best_of
         self.use_beam_search = use_beam_search
         self.request_rate = request_rate
-        self.disable_tqdm = disable_tqdm
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -492,7 +476,6 @@ class benchThread(threading.Thread):
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
                 request_rate=self.request_rate,
-                disable_tqdm=self.disable_tqdm,
                 thread_id=self.thread_id,
             )
         
@@ -595,14 +578,13 @@ def main(args: argparse.Namespace):
                 best_of=args.best_of,
                 use_beam_search=args.use_beam_search,
                 request_rate=args.request_rate,
-                disable_tqdm=args.disable_tqdm,
             ))
     else:
         benchmark_start_time = time.perf_counter()
         threads = []
         for i in range(args.num_threads):
             thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
-                                    args.best_of, args.use_beam_search, args.request_rate, args.disable_tqdm)
+                                    args.best_of, args.use_beam_search, args.request_rate)
             thread.start()
             threads.append(thread)
 
@@ -680,28 +662,28 @@ if __name__ == "__main__":
         default=None,
         help="Server or API base url if not using http host and port.",
     )
-    # parser.add_argument("--host", type=str, default="localhost")
-    # parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--host", type=str, default="localhost")
+    parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
         "--endpoint",
         type=str,
         default="/v1/completions",
         help="API endpoint.",
     )
-    # parser.add_argument(
-    #     "--dataset",
-    #     type=str,
-    #     default=None,
-    #     help="Path to the ShareGPT dataset, will be deprecated in the "
-    #     "next release.",
-    # )
-    # parser.add_argument(
-    #     "--dataset-name",
-    #     type=str,
-    #     default="sharegpt",
-    #     choices=["sharegpt", "sonnet"],
-    #     help="Name of the dataset to benchmark on.",
-    # )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Path to the ShareGPT dataset, will be deprecated in the "
+        "next release.",
+    )
+    parser.add_argument(
+        "--dataset-name",
+        type=str,
+        default="sharegpt",
+        choices=["sharegpt", "sonnet"],
+        help="Name of the dataset to benchmark on.",
+    )
     parser.add_argument("--dataset-path",
                         type=str,
                         default=None,
@@ -738,71 +720,66 @@ if __name__ == "__main__":
         default=None,
         help="Output length for each request. Overrides the output length "
         "from the ShareGPT dataset.")
-    # parser.add_argument(
-    #     "--sonnet-input-len",
-    #     type=int,
-    #     default=550,
-    #     help=
-    #     "Number of input tokens per request, used only for sonnet dataset.",
-    # )
-    # parser.add_argument(
-    #     "--sonnet-output-len",
-    #     type=int,
-    #     default=150,
-    #     help=
-    #     "Number of output tokens per request, used only for sonnet dataset.",
-    # )
-    # parser.add_argument(
-    #     "--sonnet-prefix-len",
-    #     type=int,
-    #     default=200,
-    #     help=
-    #     "Number of prefix tokens per request, used only for sonnet dataset.",
-    # )
-    # parser.add_argument(
-    #     "--request-rate",
-    #     type=float,
-    #     default=float("inf"),
-    #     help="Number of requests per second. If this is inf, "
-    #     "then all the requests are sent at time 0. "
-    #     "Otherwise, we use Poisson process to synthesize "
-    #     "the request arrival times.",
-    # )
-    # parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--sonnet-input-len",
+        type=int,
+        default=550,
+        help=
+        "Number of input tokens per request, used only for sonnet dataset.",
+    )
+    parser.add_argument(
+        "--sonnet-output-len",
+        type=int,
+        default=150,
+        help=
+        "Number of output tokens per request, used only for sonnet dataset.",
+    )
+    parser.add_argument(
+        "--sonnet-prefix-len",
+        type=int,
+        default=200,
+        help=
+        "Number of prefix tokens per request, used only for sonnet dataset.",
+    )
+    parser.add_argument(
+        "--request-rate",
+        type=float,
+        default=float("inf"),
+        help="Number of requests per second. If this is inf, "
+        "then all the requests are sent at time 0. "
+        "Otherwise, we use Poisson process to synthesize "
+        "the request arrival times.",
+    )
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
     )
-    # parser.add_argument(
-    #     "--disable-tqdm",
-    #     action="store_true",
-    #     help="Specify to disable tqdm progress bar.",
-    # )
-    # parser.add_argument(
-    #     "--save-result",
-    #     action="store_true",
-    #     help="Specify to save benchmark results to a json file",
-    # )
-    # parser.add_argument(
-    #     "--metadata",
-    #     metavar="KEY=VALUE",
-    #     nargs="*",
-    #     help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
-    #     "for metadata of this run to be saved in the result JSON file "
-    #     "for record keeping purposes.",
-    # )
-    # parser.add_argument(
-    #     "--result-dir",
-    #     type=str,
-    #     default=None,
-    #     help="Specify directory to save benchmark json results."
-    #     "If not specified, results are saved in the current directory.",
-    # )
-    # parser.add_argument(
-    #     "--enable-async",
-    #     action="store_true",
-    # )
+    parser.add_argument(
+        "--save-result",
+        action="store_true",
+        help="Specify to save benchmark results to a json file",
+    )
+    parser.add_argument(
+        "--metadata",
+        metavar="KEY=VALUE",
+        nargs="*",
+        help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
+        "for metadata of this run to be saved in the result JSON file "
+        "for record keeping purposes.",
+    )
+    parser.add_argument(
+        "--result-dir",
+        type=str,
+        default=None,
+        help="Specify directory to save benchmark json results."
+        "If not specified, results are saved in the current directory.",
+    )
+    parser.add_argument(
+        "--enable-async",
+        action="store_true",
+    )
     parser.add_argument(
         "--num-threads",
         type=int,

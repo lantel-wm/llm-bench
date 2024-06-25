@@ -65,7 +65,6 @@ CMD="python ${BENCHMARK_LLM} \
 --dataset-path $DATASET_PATH \
 --num-prompts $PROMPTS \
 --num-threads $CLIENTS \
---disable-tqdm \
 --thread-stop-time $STOP_TIME"
 
 echo "BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} CLIENTS${CLIENTS} -> $CMD"

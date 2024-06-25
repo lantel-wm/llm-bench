@@ -63,13 +63,13 @@ _NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
 
 for MODE in "${_MODE_LIST[@]}"; do
 
-# for GPUS in "${_7B_TP_LIST[@]}"; do
-#     launch_server_and_test 7 "$GPUS" 1000 10 "$MODE"
-# done
-
-for GPUS in "${_13B_TP_LIST[@]}"; do
-    launch_server_and_test 13 "$GPUS" 1000 10 "$MODE"
+for GPUS in "${_7B_TP_LIST[@]}"; do
+    launch_server_and_test 7 "$GPUS" 1000 10 "$MODE"
 done
+
+# for GPUS in "${_13B_TP_LIST[@]}"; do
+#     launch_server_and_test 13 "$GPUS" 1000 10 "$MODE"
+# done
 
 # for GPUS in "${_65B_TP_LIST[@]}"; do
 #     launch_server_and_test 65 "$GPUS" 1000 10 "$MODE"
