@@ -20,10 +20,11 @@ function unittest() {
     fi
 }
 
-echo "model_size(B),tp,num_clients,mode,success_rate,rps,i_tps,o_tps,\
+# io_tps prefill_tps decode_tps
+echo "model_size(B),tp,num_clients,mode,success_rate,qps,io_tps,o_tps,\
 min_ttft(ms),max_ttft(ms),mean_ttft(ms),median_ttft(ms),p90_ttft(ms),p99_ttft(ms),\
 min_tpot(ms),max_tpot(ms),mean_tpot(ms),median_tpot(ms),p90_tpot(ms),p99_tpot(ms),\
-min_tpr(ms),max_tpr(ms),mean_tpr(ms),median_tpr(ms),p90_tpr(ms),p99_tpr(ms)" > $PERF_BASE_PATH/benchmark_all_cuda_result.csv
+min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > $PERF_BASE_PATH/benchmark_all_cuda_result.csv
 
 _MODE_LIST=(fp16)
 _7B_TP_LIST=(1)

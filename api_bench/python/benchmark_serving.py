@@ -46,7 +46,7 @@ class BenchmarkMetrics:
     total_input: int
     total_output: int
     request_throughput: float
-    input_throughput: float
+    inout_throughput: float
     output_throughput: float
     
     min_ttft_ms: float
@@ -63,12 +63,12 @@ class BenchmarkMetrics:
     p90_tpot_ms: float
     p99_tpot_ms: float
     
-    min_tpr_ms: float
-    max_tpr_ms: float
-    mean_tpr_ms: float
-    median_tpr_ms: float
-    p90_tpr_ms: float
-    p99_tpr_ms: float
+    min_e2e_ms: float
+    max_e2e_ms: float
+    mean_e2e_ms: float
+    median_e2e_ms: float
+    p90_e2e_ms: float
+    p99_e2e_ms: float
 
 
 def sample_sharegpt_requests(
@@ -229,35 +229,37 @@ def calculate_metrics(
     tokenizer: PreTrainedTokenizerBase,
 ) -> Tuple[BenchmarkMetrics, List[int]]:
     actual_output_lens = []
-    total_input = 0
+    total_input_tokens = 0
     completed = 0
     tpots = []
     ttfts = []
-    tprs = []
+    e2es = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
-            total_input += input_requests[i][1]
+            total_input_tokens += input_requests[i][1]
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
                 
             ttfts.append(outputs[i].ttft)
-            tprs.append(outputs[i].latency)
+            e2es.append(outputs[i].latency)
             completed += 1
             
         else:
             actual_output_lens.append(0)
 
+    total_output_tokens = sum(actual_output_lens)
+    
     metrics = BenchmarkMetrics(
         completed=completed,
         successful_rate=completed / len(outputs),
-        total_input=total_input,
-        total_output=sum(actual_output_lens),
+        total_input=total_input_tokens,
+        total_output=total_output_tokens,
         request_throughput=completed / dur_s,
-        input_throughput=total_input / dur_s,
-        output_throughput=sum(actual_output_lens) / dur_s,
+        in_out_throughput=(total_input_tokens + total_output_tokens) / dur_s,
+        output_throughput=total_output_tokens / dur_s,
         
         min_ttft_ms=np.min(ttfts or 0) * 1000,  # ttfts is empty if streaming is not supported by backend
         max_ttft_ms=np.max(ttfts or 0) * 1000,
@@ -273,12 +275,12 @@ def calculate_metrics(
         p90_tpot_ms=np.percentile(tpots, 90) * 1000,
         p99_tpot_ms=np.percentile(tpots, 99) * 1000,
         
-        min_tpr_ms=np.min(tprs) * 1000,
-        max_tpr_ms=np.max(tprs) * 1000,
-        mean_tpr_ms=np.mean(tprs) * 1000,
-        median_tpr_ms=np.median(tprs) * 1000,
-        p90_tpr_ms=np.percentile(tprs, 90) * 1000,
-        p99_tpr_ms=np.percentile(tprs, 99) * 1000,
+        min_e2e_ms=np.min(e2es) * 1000,
+        max_e2e_ms=np.max(e2es) * 1000,
+        mean_e2e_ms=np.mean(e2es) * 1000,
+        median_e2e_ms=np.median(e2es) * 1000,
+        p90_e2e_ms=np.percentile(e2es, 90) * 1000,
+        p99_e2e_ms=np.percentile(e2es, 99) * 1000,
     )
 
     return metrics, actual_output_lens
@@ -331,12 +333,12 @@ def dump_metrics_and_results(
     
     # print("=" * 50)
     
-    # success, rps, i_tps, o_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
+    # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
     csv_line += f"{metrics.successful_rate},"
     csv_line += f"{metrics.request_throughput},"
-    csv_line += f"{metrics.input_throughput},"
     csv_line += f"{metrics.output_throughput},"
+    csv_line += f"{metrics.inout_throughput},"
     csv_line += f"{metrics.min_ttft_ms},"
     csv_line += f"{metrics.max_ttft_ms},"
     csv_line += f"{metrics.mean_ttft_ms},"
@@ -349,12 +351,12 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.median_tpot_ms},"
     csv_line += f"{metrics.p90_tpot_ms},"
     csv_line += f"{metrics.p99_tpot_ms},"
-    csv_line += f"{metrics.min_tpr_ms},"
-    csv_line += f"{metrics.max_tpr_ms},"
-    csv_line += f"{metrics.mean_tpr_ms},"
-    csv_line += f"{metrics.median_tpr_ms},"
-    csv_line += f"{metrics.p90_tpr_ms},"
-    csv_line += f"{metrics.p99_tpr_ms}"
+    csv_line += f"{metrics.min_e2e_ms},"
+    csv_line += f"{metrics.max_e2e_ms},"
+    csv_line += f"{metrics.mean_e2e_ms},"
+    csv_line += f"{metrics.median_e2e_ms},"
+    csv_line += f"{metrics.p90_e2e_ms},"
+    csv_line += f"{metrics.p99_e2e_ms}"
     print("CSV format output:", csv_line)
 
     return {
