@@ -662,20 +662,11 @@ if __name__ == "__main__":
         default=None,
         help="Server or API base url if not using http host and port.",
     )
-    parser.add_argument("--host", type=str, default="localhost")
-    parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
         "--endpoint",
         type=str,
         default="/v1/completions",
         help="API endpoint.",
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=None,
-        help="Path to the ShareGPT dataset, will be deprecated in the "
-        "next release.",
     )
     parser.add_argument(
         "--dataset-name",
@@ -721,64 +712,9 @@ if __name__ == "__main__":
         help="Output length for each request. Overrides the output length "
         "from the ShareGPT dataset.")
     parser.add_argument(
-        "--sonnet-input-len",
-        type=int,
-        default=550,
-        help=
-        "Number of input tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-output-len",
-        type=int,
-        default=150,
-        help=
-        "Number of output tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--sonnet-prefix-len",
-        type=int,
-        default=200,
-        help=
-        "Number of prefix tokens per request, used only for sonnet dataset.",
-    )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
-    parser.add_argument("--seed", type=int, default=None)
-    parser.add_argument(
         "--trust-remote-code",
         action="store_true",
         help="Trust remote code from huggingface",
-    )
-    parser.add_argument(
-        "--save-result",
-        action="store_true",
-        help="Specify to save benchmark results to a json file",
-    )
-    parser.add_argument(
-        "--metadata",
-        metavar="KEY=VALUE",
-        nargs="*",
-        help="Key-value pairs (e.g, --metadata version=0.3.3 tp=1) "
-        "for metadata of this run to be saved in the result JSON file "
-        "for record keeping purposes.",
-    )
-    parser.add_argument(
-        "--result-dir",
-        type=str,
-        default=None,
-        help="Specify directory to save benchmark json results."
-        "If not specified, results are saved in the current directory.",
-    )
-    parser.add_argument(
-        "--enable-async",
-        action="store_true",
     )
     parser.add_argument(
         "--num-threads",
