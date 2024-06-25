@@ -80,9 +80,3 @@ done
 # done
 
 done
-
-# 留三位小数
-# 数据集的平均input output长度
-# min_prompt_len, max_prompt_len, max_total_len, min_prompt_len
-# input 长度，total len 的柱状图
-# sample sharegpt 指定任意轮对话
