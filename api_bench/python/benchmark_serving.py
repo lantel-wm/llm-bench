@@ -17,7 +17,6 @@ On the client side, run:
         --num-prompts <num_prompts> # By default <num_prompts> is 1000
 """
 import argparse
-import asyncio
 import threading
 import json
 import os
@@ -29,8 +28,7 @@ from datetime import datetime
 from typing import AsyncGenerator, List, Optional, Tuple
 
 import numpy as np
-from backend_request_func import (ASYNC_REQUEST_FUNCS, REQUEST_FUNCS,
-                                  RequestFuncInput, RequestFuncOutput)
+from backend_request_func import (REQUEST_FUNCS, RequestFuncInput, RequestFuncOutput)
 from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
@@ -115,84 +113,6 @@ def sample_sharegpt_requests(
     return filtered_dataset
 
 
-def sample_sonnet_requests(
-    dataset_path: str,
-    num_requests: int,
-    input_len: int,
-    output_len: int,
-    prefix_len: int,
-    tokenizer: PreTrainedTokenizerBase,
-) -> List[Tuple[str, str, int, int]]:
-    assert (
-        input_len > prefix_len
-    ), "'args.sonnet-input-len' must be greater than 'args.prefix-input-len'."
-
-    # Load the dataset.
-    with open(dataset_path) as f:
-        poem_lines = f.readlines()
-
-    # Tokenize the poem lines.
-    poem_token_ids = tokenizer(poem_lines).input_ids
-    average_poem_len = sum(
-        len(token_ids) for token_ids in poem_token_ids) / len(poem_token_ids)
-
-    # Base prefix for all requests.
-    base_prompt = "Pick as many lines as you can from these poem lines:\n"
-    base_message = [{
-        "role": "user",
-        "content": base_prompt,
-    }]
-    base_prompt_formatted = tokenizer.apply_chat_template(
-        base_message, add_generation_prompt=True, tokenize=False)
-    base_prompt_offset = len(tokenizer(base_prompt_formatted).input_ids)
-
-    assert (
-        input_len > base_prompt_offset
-    ), f"Please set 'args.sonnet-input-len' higher than {base_prompt_offset}."
-    num_input_lines = round(
-        (input_len - base_prompt_offset) / average_poem_len)
-
-    # First approximately `prefix_len` number of tokens in the
-    # prompt are fixed poem lines.
-    assert (
-        prefix_len > base_prompt_offset
-    ), f"Please set 'args.sonnet-prefix-len' higher than {base_prompt_offset}."
-
-    num_prefix_lines = round(
-        (prefix_len - base_prompt_offset) / average_poem_len)
-    prefix_lines = poem_lines[:num_prefix_lines]
-
-    # Sample the rest of lines per request.
-    sampled_requests: List[Tuple[str, int, int]] = []
-    for _ in range(num_requests):
-        sampled_lines = "".join(
-            prefix_lines +
-            random.sample(poem_lines, num_input_lines - num_prefix_lines))
-
-        prompt = f"{base_prompt}{sampled_lines}"
-        message = [
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ]
-        prompt_formatted = tokenizer.apply_chat_template(
-            message, add_generation_prompt=True, tokenize=False)
-        prompt_len = len(tokenizer(prompt_formatted).input_ids)
-        sampled_requests.append(
-            (prompt, prompt_formatted, prompt_len, output_len))
-
-    return sampled_requests
-
-
-async def get_request_async(
-    input_requests: List[Tuple[str, int, int]],
-) -> AsyncGenerator[Tuple[str, int, int], None]:
-    input_requests = iter(input_requests)
-    for request in input_requests:
-        yield request
-        
-
 def get_request(
     input_requests: List[Tuple[str, int, int]],
 ):
@@ -270,7 +190,7 @@ def dump_metrics_and_results(
     actual_output_lens: List[int],
     outputs: List[RequestFuncOutput], 
     benchmark_duration: float
-) -> dict:
+):
     # success_rate, qps, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
@@ -296,84 +216,7 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.p90_e2e_ms:.3f},"
     csv_line += f"{metrics.p99_e2e_ms:.3f}"
     print(f"CSV format output:{csv_line}")
-
-    return {
-        "duration": benchmark_duration,
-        "completed": metrics.completed,
-        "total_input_tokens": metrics.total_input,
-        "total_output_tokens": metrics.total_output,
-        "request_throughput": metrics.request_throughput,
-        "in_out_throughput": metrics.in_out_throughput,
-        "output_throughput": metrics.output_throughput,
-        "min_ttft_ms": metrics.min_ttft_ms,
-        "max_ttft_ms": metrics.max_ttft_ms,
-        "mean_ttft_ms": metrics.mean_ttft_ms,
-        "median_ttft_ms": metrics.median_ttft_ms,
-        "p90_ttft_ms": metrics.p90_ttft_ms,
-        "p99_ttft_ms": metrics.p99_ttft_ms,
-        "min_tpot_ms": metrics.min_tpot_ms,
-        "max_tpot_ms": metrics.max_tpot_ms,
-        "mean_tpot_ms": metrics.mean_tpot_ms,
-        "median_tpot_ms": metrics.median_tpot_ms,
-        "p90_tpot_ms": metrics.p90_tpot_ms,
-        "p99_tpot_ms": metrics.p99_tpot_ms,
-        "min_e2e_ms": metrics.min_e2e_ms,
-        "max_e2e_ms": metrics.max_e2e_ms,
-        "mean_e2e_ms": metrics.mean_e2e_ms,
-        "median_e2e_ms": metrics.median_e2e_ms,
-        "p90_e2e_ms": metrics.p90_e2e_ms,
-        "p99_e2e_ms": metrics.p99_e2e_ms,
-        "input_lens": [output.prompt_len for output in outputs],
-        "output_lens": actual_output_lens,
-        "ttfts": [output.ttft for output in outputs],
-        "itls": [output.itl for output in outputs],
-        "generated_texts": [output.generated_text for output in outputs],
-        "errors": [output.error for output in outputs],
-    }
-
-async def benchmark_async(
-    backend: str,
-    api_url: str,
-    model_id: str,
-    tokenizer: PreTrainedTokenizerBase,
-    input_requests: List[Tuple[str, int, int]],
-    best_of: int,
-    use_beam_search: bool,
-):
-    if backend in ASYNC_REQUEST_FUNCS:
-        request_func = ASYNC_REQUEST_FUNCS.get(backend)
-    else:
-        raise ValueError(f"Unknown backend: {backend}")
-
-
-    benchmark_start_time = time.perf_counter()
-    tasks = []
-    async for request in get_request_async(input_requests):
-        prompt, prompt_len, output_len = request
-        request_func_input = RequestFuncInput(
-            model=model_id,
-            prompt=prompt,
-            api_url=api_url,
-            prompt_len=prompt_len,
-            output_len=output_len,
-            best_of=best_of,
-            use_beam_search=use_beam_search,
-        )
-        tasks.append(
-            asyncio.create_task(
-                request_func(request_func_input=request_func_input)))
-    outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
-
-    benchmark_duration = time.perf_counter() - benchmark_start_time
     
-    metrics, actual_output_lens = calculate_metrics(
-        input_requests=input_requests,
-        outputs=outputs,
-        dur_s=benchmark_duration,
-        tokenizer=tokenizer,
-    )
-
-    return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
 
 def benchmark(
     backend: str,
@@ -501,7 +344,7 @@ if __name__ == "__main__":
         "--backend",
         type=str,
         default="vllm",
-        choices=list(ASYNC_REQUEST_FUNCS.keys()),
+        choices=list(REQUEST_FUNCS.keys()),
     )
     parser.add_argument(
         "--base-url",
