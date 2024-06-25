@@ -13,9 +13,7 @@ On the client side, run:
     python benchmarks/benchmark_serving.py \
         --backend <backend> \
         --model <your_model> \
-        --dataset-name sharegpt \
         --dataset-path <path to dataset> \
-        --request-rate <request_rate> \ # By default <request_rate> is inf
         --num-prompts <num_prompts> # By default <num_prompts> is 1000
 """
 import argparse
@@ -189,36 +187,18 @@ def sample_sonnet_requests(
 
 async def get_request_async(
     input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
 ) -> AsyncGenerator[Tuple[str, int, int], None]:
     input_requests = iter(input_requests)
     for request in input_requests:
         yield request
-
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        await asyncio.sleep(interval)
         
 
 def get_request(
     input_requests: List[Tuple[str, int, int]],
-    request_rate: float,
 ):
     input_requests = iter(input_requests)
     for request in input_requests:
         yield request
-
-        if request_rate == float("inf"):
-            # If the request rate is infinity, then we don't need to wait.
-            continue
-        # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
-        # The next request will be sent after the interval.
-        time.sleep(interval)
 
 
 def calculate_metrics(
@@ -359,18 +339,16 @@ async def benchmark_async(
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
     use_beam_search: bool,
-    request_rate: float,
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-    print(f"Traffic request rate: {request_rate}")
 
     benchmark_start_time = time.perf_counter()
     tasks = []
-    async for request in get_request_async(input_requests, request_rate):
+    async for request in get_request_async(input_requests):
         prompt, prompt_len, output_len = request
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -405,7 +383,6 @@ def benchmark(
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
     use_beam_search: bool,
-    request_rate: float,
     thread_id: int = -1,
 ):
     if backend in REQUEST_FUNCS:
@@ -416,7 +393,7 @@ def benchmark(
 
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request in get_request(input_requests, request_rate):
+    for request in get_request(input_requests):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -430,29 +407,14 @@ def benchmark(
             best_of=best_of,
             use_beam_search=use_beam_search,
         )
-                
         outputs.append(request_func(request_func_input=request_func_input))
         
-
-    if thread_id == -1:
-        benchmark_duration = time.perf_counter() - benchmark_start_time
-        
-        metrics, actual_output_lens = calculate_metrics(
-            input_requests=input_requests,
-            outputs=outputs,
-            dur_s=benchmark_duration,
-            tokenizer=tokenizer,
-        )
-
-        return dump_metrics_and_results(metrics, actual_output_lens, outputs, benchmark_duration)
-    
-    else:
-        return outputs
+    return outputs
 
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search, request_rate):
+                 best_of, use_beam_search):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -463,7 +425,6 @@ class benchThread(threading.Thread):
         self.input_requests = input_requests
         self.best_of = best_of
         self.use_beam_search = use_beam_search
-        self.request_rate = request_rate
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -475,7 +436,6 @@ class benchThread(threading.Thread):
                 input_requests=self.input_requests,
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
-                request_rate=self.request_rate,
                 thread_id=self.thread_id,
             )
         
@@ -492,8 +452,9 @@ def main(args: argparse.Namespace):
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    if args.base_url is not None:
-        api_url = f"{args.base_url}{args.endpoint}"
+    api_url = f"{args.base_url}{args.endpoint}"
+    if not api_url.startswith("http"):
+        api_url = f"http://{api_url}"
     
     tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
@@ -511,7 +472,7 @@ def main(args: argparse.Namespace):
     threads = []
     for i in range(args.num_threads):
         thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
-                                args.best_of, args.use_beam_search, args.request_rate)
+                                args.best_of, args.use_beam_search)
         thread.start()
         threads.append(thread)
 
@@ -523,7 +484,6 @@ def main(args: argparse.Namespace):
     all_outputs = []
     for thread in threads:
         outputs = thread.get_result()
-        print(f"len(outputs): {len(outputs)}, thread_id: {thread.thread_id}")
         all_outputs += outputs
         
     metrics, actual_output_lens = calculate_metrics(
@@ -536,8 +496,7 @@ def main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput.")
+    parser = argparse.ArgumentParser(description="Benchmark the online serving throughput.")
     parser.add_argument(
         "--backend",
         type=str,

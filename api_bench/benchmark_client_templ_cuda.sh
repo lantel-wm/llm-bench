@@ -4,18 +4,15 @@ SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
 if [ -z "$BENCHMARK_LLM" ]; then
-    echo "[ERROR] please set env BENCHMARK_LLM to the absolute path of benchmark_serving.py script"
-    exit 1
+    BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_serving.py"
 fi
 
 if [ -z "$DATASET_PATH" ]; then
-    echo "[ERROR] please set env DATASET_PATH to the dataset path"
-    exit 1
+    DATASET_PATH="$PERF_BASE_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
 fi
 
 if [ -z "$VLLM_SERVER_URL" ];then
-    echo "[ERROR] please set env VLLM_SERVER_HOST to the vllm server url"
-    exit 1
+    VLLM_SERVER_URL="http://10.198.31.25:8000"
 fi
 
 MODEL_SIZE=$1
@@ -48,7 +45,9 @@ if [ -z "$STOP_TIME" ]; then
     STOP_TIME=300
 fi
 
-MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+if [ -z "$MODEL_DIR" ];then
+    MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+fi
 
 # python python/benchmark_serving.py --host 10.198.31.25 --port 8000 --model /mnt/llm2/llm_perf/hf_models/llama-7b-hf --dataset-name sharegpt --dataset-path ./ShareGPT_V3_unfiltered_cleaned_split.json --num-prompts 1000 --num-threads 64 --disable-tqdm --thread-stop-time 30
 

@@ -4,12 +4,11 @@ SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 
 if [ -z "$VLLM_SERVER_URL" ];then
-    echo "[ERROR] please set env VLLM_SERVER_URL to the vllm server url"
-    exit 1
+    VLLM_SERVER_URL="http://10.198.31.25:8000"
 fi
 
 function check_server_status() {
-    local url="http://${VLLM_SERVER_URL}/v1/models"
+    local url="${VLLM_SERVER_URL}/v1/models"
     response=$(curl -s "${url}")
     
     if [[ $response == *"\"object\":\"list\""* ]]; then
