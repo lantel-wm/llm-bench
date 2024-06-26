@@ -422,7 +422,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ramp-up-time",
         type=float,
-        default=0,
+        default=1,
         help="Ramp up time in seconds for each thread.",
     )
     parser.add_argument(
