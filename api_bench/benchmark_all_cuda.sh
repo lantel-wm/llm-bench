@@ -61,18 +61,19 @@ _13B_TP_LIST=(2)
 _65B_TP_LIST=(8)
 _70B_TP_LIST=(4 8)
 
-_NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
+# _NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
+_NUM_CLIENTS_LIST=(64)
 
 for MODE in "${_MODE_LIST[@]}"; do
 
 for GPUS in "${_7B_TP_LIST[@]}"; do
     # model_size tp num_prompts ramp_up_time stop_time mode
-    launch_server_and_test 7 "$GPUS" 1000 1 300 "$MODE"
+    launch_server_and_test 7 "$GPUS" 10000 1 300 "$MODE"
 done
 
-for GPUS in "${_13B_TP_LIST[@]}"; do
-    launch_server_and_test 13 "$GPUS" 1000 300 "$MODE"
-done
+# for GPUS in "${_13B_TP_LIST[@]}"; do
+#     launch_server_and_test 13 "$GPUS" 1000 1 300 "$MODE"
+# done
 
 # for GPUS in "${_65B_TP_LIST[@]}"; do
 #     launch_server_and_test 65 "$GPUS" 1000 10 "$MODE"
