@@ -8,11 +8,12 @@ function unittest() {
     GPUS=$2
     PROMPTS=$3
     CLIENTS=$4
-    STOP_TIME=$5
-    MODE=$6
+    RAMP_UP_TIME=$5
+    STOP_TIME=$6
+    MODE=$7
 
-    echo "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} CLIENTS$CLIENTS STOP_TIME$STOP_TIME ${MODE^^}]"
-    RES=$(bash "$PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh" "${MODEL_SIZE}" "${GPUS}" "${PROMPTS}" "${CLIENTS}" "${STOP_TIME}" | grep "CSV format output")
+    echo "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} CLIENTS$CLIENTS RAMP_UP_TIME$RAMP_UP_TIME STOP_TIME$STOP_TIME ${MODE^^}]"
+    RES=$(bash "$PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh" "${MODEL_SIZE}" "${GPUS}" "${PROMPTS}" "${CLIENTS}" "${RAMP_UP_TIME}" "${STOP_TIME}" | grep "CSV format output")
     RES=${RES##*:}
 
     if [ -z "$RES" ]; then
@@ -27,8 +28,9 @@ function launch_server_and_test() {
     MODEL_SIZE=$1
     GPUS=$2
     PROMPTS=$3
-    STOP_TIME=$4
-    MODE=$5
+    RAMP_UP_TIME=$4
+    STOP_TIME=$5
+    MODE=$6
 
     SERVER_PID=$(bash "$PERF_BASE_PATH"/benchmark_server_templ_cuda.sh "$MODEL_SIZE" "$GPUS" | grep -o "[0-9]\+")
     SERVER_PID=${SERVER_PID##*:}
@@ -41,7 +43,7 @@ function launch_server_and_test() {
     fi
 
     for CLIENTS in "${_NUM_CLIENTS_LIST[@]}"; do
-        unittest "$MODEL_SIZE" "$GPUS" "$PROMPTS" "$CLIENTS" "$STOP_TIME" "$MODE"
+        unittest "$MODEL_SIZE" "$GPUS" "$PROMPTS" "$CLIENTS" "$RAMP_UP_TIME" "$STOP_TIME" "$MODE"
     done
 
     kill -9 "$SERVER_PID"
@@ -64,12 +66,13 @@ _NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
 for MODE in "${_MODE_LIST[@]}"; do
 
 for GPUS in "${_7B_TP_LIST[@]}"; do
-    launch_server_and_test 7 "$GPUS" 1000 10 "$MODE"
+    # model_size tp num_prompts ramp_up_time stop_time mode
+    launch_server_and_test 7 "$GPUS" 1000 1 300 "$MODE"
 done
 
-# for GPUS in "${_13B_TP_LIST[@]}"; do
-#     launch_server_and_test 13 "$GPUS" 1000 10 "$MODE"
-# done
+for GPUS in "${_13B_TP_LIST[@]}"; do
+    launch_server_and_test 13 "$GPUS" 1000 300 "$MODE"
+done
 
 # for GPUS in "${_65B_TP_LIST[@]}"; do
 #     launch_server_and_test 65 "$GPUS" 1000 10 "$MODE"

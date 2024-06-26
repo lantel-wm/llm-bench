@@ -39,7 +39,13 @@ if [ -z "$CLIENTS" ]; then
     CLIENTS=1
 fi
 
-STOP_TIME=$5
+RAMP_UP_TIME=$5
+
+if [ -z "$RAMP_UP_TIME" ]; then
+    RAMP_UP_TIME=1
+fi
+
+STOP_TIME=$6
 
 if [ -z "$STOP_TIME" ]; then
     STOP_TIME=300
@@ -58,6 +64,7 @@ CMD="python ${BENCHMARK_LLM} \
 --dataset-path $DATASET_PATH \
 --num-prompts $PROMPTS \
 --num-threads $CLIENTS \
+--ramp-up-time $RAMP_UP_TIME \
 --thread-stop-time $STOP_TIME"
 
 echo "BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} CLIENTS${CLIENTS} -> $CMD"
