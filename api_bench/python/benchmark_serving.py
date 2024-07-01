@@ -308,19 +308,20 @@ def main(args: argparse.Namespace):
     tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
     # sample requests
-    input_request = [sample_sharegpt_requests(
+    input_requests = sample_sharegpt_requests(
         dataset_path=args.dataset_path,
         num_requests=args.num_prompts,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
-    ) for _ in range(args.num_threads)]
-    input_requests = sum(input_request, [])                
+    )               
 
     # start benchmark
     benchmark_start_time = time.perf_counter()
     threads = []
     for i in range(args.num_threads):
-        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests[i * args.num_prompts:(i + 1) * args.num_prompts],
+        random.shuffle(input_requests)
+        print(f"input_requests[0]: {input_requests[0]}")
+        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests,
                                 args.best_of, args.use_beam_search)
         thread.start()
         threads.append(thread)
