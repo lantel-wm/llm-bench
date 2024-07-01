@@ -23,6 +23,12 @@ if [ -z "$TP_SIZE" ]; then
     TP_SIZE=1
 fi
 
+CLIENTS=$3
+
+if [ -z "$CLIENTS" ]; then
+    CLIENTS=1
+fi
+
 MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
 
 # python -m vllm.entrypoints.openai.api_server --model /mnt/llm2/llm_perf/hf_models/llama-7b-hf --swap-space 16 --disable-log-requests --enforce-eager --host 10.198.31.25  --port 8000
@@ -36,6 +42,7 @@ CMD="nohup python -m vllm.entrypoints.openai.api_server \
 --host $VLLM_SERVER_HOST \
 --port $VLLM_SERVER_PORT \
 --uvicorn-log-level warning \
+--max-num-seqs $CLIENTS \
 >> log/server.log 2>&1 &"
 
 # --disable-log-stats \
