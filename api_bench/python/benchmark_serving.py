@@ -87,7 +87,7 @@ def sample_sharegpt_requests(
     # Filter out the conversations with less than num_turns.
     dataset = [data for data in dataset if len(data["conversations"]) >= num_turns]
     # Only keep the first num_turns of each conversation.
-    dataset = [[data["conversations"][turn] for turn in range(num_turns)] for data in dataset]
+    dataset = [[data["conversations"][turn]["value"] for turn in range(num_turns)] for data in dataset]
 
     # Shuffle the dataset.
     random.shuffle(dataset)
@@ -97,11 +97,16 @@ def sample_sharegpt_requests(
     for i in range(len(dataset)):
         if len(filtered_dataset) == num_requests:
             break
-
+        
+        prompt = ""
+        for j in range(num_turns - 1):
+            print(f"Turn {j}:")
+            print(dataset[i][j])
+            prompt += dataset[i][j] + "\n"
+        completion = dataset[i][-1]
+        
         # Tokenize the prompts and completions.
-        prompt = dataset[i][0]
         prompt_token_ids = tokenizer(prompt).input_ids
-        completion = dataset[i][1]
         completion_token_ids = tokenizer(completion).input_ids
         prompt_len = len(prompt_token_ids)
         output_len = len(completion_token_ids
@@ -109,9 +114,7 @@ def sample_sharegpt_requests(
         if prompt_len < 4 or output_len < 4:
             # Prune too short sequences.
             continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
+        
         filtered_dataset.append((prompt, prompt_len, output_len))
 
     return filtered_dataset
