@@ -2,6 +2,7 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+LOG_DIR="$PERF_BASE_PATH/log/benchmark_all_cuda.log"
 
 if [ -z "$BENCHMARK_LLM" ]; then
     BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_serving.py"
@@ -68,5 +69,8 @@ CMD="python ${BENCHMARK_LLM} \
 --thread-stop-time $STOP_TIME"
 
 echo "BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} CLIENTS${CLIENTS} -> $CMD"
+if [ -f "$LOG_DIR" ]; then
+    echo "[INFO] BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} CLIENTS${CLIENTS} -> $CMD" >> "$LOG_DIR"
+fi
 
 eval "$CMD"

@@ -2,6 +2,7 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+LOG_DIR="$PERF_BASE_PATH/log/benchmark_all_cuda.log"
 
 if [ -z "$VLLM_SERVER_URL" ];then
     VLLM_SERVER_URL="http://10.198.31.25:8000"
@@ -27,7 +28,7 @@ if [ ! -n "$SERVER_PID" ]; then
 else
     SERVER_PID=$(echo "$SERVER_PID" | grep -oP "SERVER PID: \K[0-9]+")
 
-    attempt=20
+    attempt=30
     while [ $attempt -gt 0 ]; do
         # echo "Attempt $attempt"
         sleep 5
@@ -40,6 +41,9 @@ else
 
     if [ $attempt -eq 0 ]; then
         echo "[ERROR] SERVER START TIMEOUT"
+        if [ -f "$LOG_DIR" ]; then
+            echo "[ERROR] SERVER START TIMEOUT" >> "$LOG_DIR"
+        fi
     else 
         echo "SERVER STARTED $SERVER_PID"
     fi

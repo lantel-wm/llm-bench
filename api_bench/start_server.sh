@@ -2,6 +2,8 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+LOG_DIR="$PERF_BASE_PATH/log
+/benchmark_all_cuda.log"
 
 if [ -z "$VLLM_SERVER_URL" ];then
     VLLM_SERVER_URL="http://10.198.31.25:8000"
@@ -35,11 +37,14 @@ CMD="nohup python -m vllm.entrypoints.openai.api_server \
 --host $VLLM_SERVER_HOST \
 --port $VLLM_SERVER_PORT \
 --uvicorn-log-level warning \
-> server.log 2>&1 &"
+> log/server.log 2>&1 &"
 
 # --disable-log-stats \
 
-echo "SERVER STARTED: MODEL${MODEL_SIZE}B TP${TP_SIZE} HOST${HOST} PORT${PORT} -> $CMD"
+echo "SERVER STARTING: MODEL${MODEL_SIZE}B TP${TP_SIZE} HOST${HOST} PORT${PORT} -> $CMD"
+if [ -f "$LOG_DIR" ]; then
+    echo "[INFO] SERVER STARTING: MODEL${MODEL_SIZE}B TP${TP_SIZE} HOST${HOST} PORT${PORT} -> $CMD" >> "$LOG_DIR"
+fi
 
 eval "$CMD"
 

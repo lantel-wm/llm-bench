@@ -2,9 +2,13 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+LOG_DIR="$PERF_BASE_PATH/benchmark_one_cuda.log"
 
 if [ -z "$BENCHMARK_LLM" ]; then
     echo "[ERROR] please set env BENCHMARK_LLM to the python benchmark script"
+    if [ -f "$LOG_DIR" ]; then
+        echo "[ERROR] please set env BENCHMARK_LLM to the python benchmark script" > "$LOG_DIR"
+    fi
     exit 1
 fi
 
@@ -54,6 +58,9 @@ CMD="python ${BENCHMARK_LLM} \
 $BENCHMARK_EXTENDED_OPTIONS"
 
 echo "BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} BATCH${BATCH} I${IN_LEN}O${OUT_LEN} -> $CMD"
+if [ -f "$LOG_DIR" ]; then
+    echo "[INFO] BENCH MODEL${MODEL_SIZE}B TP${TP_SIZE} BATCH${BATCH} I${IN_LEN}O${OUT_LEN} -> $CMD" > "$LOG_DIR"
+fi
 
 eval "$CMD"
 

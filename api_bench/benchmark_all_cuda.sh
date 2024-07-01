@@ -2,6 +2,8 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+LOG_DIR="$PERF_BASE_PATH/log/benchmark_all_cuda.log"
+SERVER_LOG_DIR="$PERF_BASE_PATH/log/server.log"
 
 function unittest() {
     MODEL_SIZE=$1
@@ -40,6 +42,9 @@ function launch_server_and_test() {
         exit 1
     else
         echo "SERVER STARTED[$SERVER_PID]: MODEL${MODEL_SIZE}B TP${GPUS}"
+        if [ -f "$PERF_BASE_PATH/benchmark_all_cuda.log" ]; then
+            echo "SERVER STARTED[$SERVER_PID]: MODEL${MODEL_SIZE}B TP${GPUS}" >> "$PERF_BASE_PATH/benchmark_all_cuda.log"
+        fi
     fi
 
     for CLIENTS in "${_NUM_CLIENTS_LIST[@]}"; do
@@ -55,6 +60,15 @@ min_ttft(ms),max_ttft(ms),mean_ttft(ms),median_ttft(ms),p90_ttft(ms),p99_ttft(ms
 min_tpot(ms),max_tpot(ms),mean_tpot(ms),median_tpot(ms),p90_tpot(ms),p99_tpot(ms),\
 min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > "$PERF_BASE_PATH/benchmark_all_cuda_result.csv"
 
+if [ -f "$LOG_DIR" ]; then
+    log_date=$(head -n 1 "$LOG_DIR" | grep -oP "\d+")
+    mv "$LOG_DIR" "$PERF_BASE_PATH/log/benchmark_all_cuda_${log_date}.log"
+fi
+if [ -f "$SERVER_LOG_DIR" ]; then
+    mv "$SERVER_LOG_DIR" "$PERF_BASE_PATH/log/server_${log_date}.log"
+fi
+echo "[INFO] benchmark_all_cuda.sh started at $(date +"%Y%m%d%H%M%S")" > "$LOG_DIR"
+
 _MODE_LIST=(fp16)
 _7B_TP_LIST=(1)
 _13B_TP_LIST=(2)
@@ -65,14 +79,14 @@ _NUM_CLIENTS_LIST=(1 2 4 8 16 32 64 128 256 512)
 
 for MODE in "${_MODE_LIST[@]}"; do
 
-for GPUS in "${_7B_TP_LIST[@]}"; do
-    # model_size tp num_prompts ramp_up_time stop_time mode
-    launch_server_and_test 7 "$GPUS" 10000 1 300 "$MODE"
-done
+# for GPUS in "${_7B_TP_LIST[@]}"; do
+#     # model_size tp num_prompts ramp_up_time stop_time mode
+#     launch_server_and_test 7 "$GPUS" 10000 1 300 "$MODE"
+# done
 
-for GPUS in "${_13B_TP_LIST[@]}"; do
-    launch_server_and_test 13 "$GPUS" 10000 1 300 "$MODE"
-done
+# for GPUS in "${_13B_TP_LIST[@]}"; do
+#     launch_server_and_test 13 "$GPUS" 10000 1 300 "$MODE"
+# done
 
 for GPUS in "${_65B_TP_LIST[@]}"; do
     launch_server_and_test 65 "$GPUS" 10000 1 300 "$MODE"
