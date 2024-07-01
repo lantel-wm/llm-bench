@@ -71,6 +71,7 @@ class BenchmarkMetrics:
 def sample_sharegpt_requests(
     dataset_path: str,
     num_requests: int,
+    num_turns: int,
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
 ) -> List[Tuple[str, int, int]]:
@@ -81,11 +82,12 @@ def sample_sharegpt_requests(
     # Load the dataset.
     with open(dataset_path) as f:
         dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [(data["conversations"][0]["value"],
-                data["conversations"][1]["value"]) for data in dataset]
+    
+    num_turns *= 2 # Each turn has a prompt and a completion.
+    # Filter out the conversations with less than num_turns.
+    dataset = [data for data in dataset if len(data["conversations"]) >= num_turns]
+    # Only keep the first num_turns of each conversation.
+    dataset = [[data["conversations"][turn] for turn in range(num_turns)] for data in dataset]
 
     # Shuffle the dataset.
     random.shuffle(dataset)
@@ -311,6 +313,7 @@ def main(args: argparse.Namespace):
     input_requests = sample_sharegpt_requests(
         dataset_path=args.dataset_path,
         num_requests=args.num_prompts,
+        num_turns=args.num_turns,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
     )               
@@ -342,7 +345,7 @@ def main(args: argparse.Namespace):
         dur_s=benchmark_duration,
         tokenizer=tokenizer,
     )
-    benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
+    dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
 
 
 if __name__ == "__main__":
@@ -419,6 +422,12 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help="Number of threads to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--num-turns",
+        type=int,
+        default=1,
+        help="Number of chat turns to use for the benchmark. A prompt and a completion are considered as one turn.",
     )
     parser.add_argument(
         "--ramp-up-time",
