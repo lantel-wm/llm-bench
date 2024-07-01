@@ -22,7 +22,7 @@ function unittest() {
     else
         echo "[OK] $RES"
         INFO "[OK] $RES"
-        echo "$MODEL_SIZE,$GPUS,$CLIENTS,$MODE,$RES" >> "$PERF_BASE_PATH/benchmark_all_cuda_result.csv"        
+        echo "$MODEL_SIZE,$GPUS,$CLIENTS,$MODE,$RES" >> "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv"
     fi
 }
 
