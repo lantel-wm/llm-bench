@@ -34,19 +34,25 @@ if [ -z "$PROMPTS" ]; then
     PROMPTS=1000
 fi
 
-CLIENTS=$4
+TURNS=$4
+
+if [ -z "$TURNS" ]; then
+    TURNS=1
+fi
+
+CLIENTS=$5
 
 if [ -z "$CLIENTS" ]; then
     CLIENTS=1
 fi
 
-RAMP_UP_TIME=$5
+RAMP_UP_TIME=$6
 
 if [ -z "$RAMP_UP_TIME" ]; then
     RAMP_UP_TIME=1
 fi
 
-STOP_TIME=$6
+STOP_TIME=$7
 
 if [ -z "$STOP_TIME" ]; then
     STOP_TIME=300
@@ -64,6 +70,7 @@ CMD="python ${BENCHMARK_LLM} \
 --dataset-name sharegpt \
 --dataset-path $DATASET_PATH \
 --num-prompts $PROMPTS \
+--num-turns $TURNS \
 --num-threads $CLIENTS \
 --ramp-up-time $RAMP_UP_TIME \
 --thread-stop-time $STOP_TIME"

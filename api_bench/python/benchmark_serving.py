@@ -100,8 +100,6 @@ def sample_sharegpt_requests(
         
         prompt = ""
         for j in range(num_turns - 1):
-            print(f"Turn {j}:")
-            print(dataset[i][j])
             prompt += dataset[i][j] + "\n"
         completion = dataset[i][-1]
         
@@ -154,6 +152,7 @@ def calculate_metrics(
             completed += 1
             
         else:
+            # print(f"outputs[{i}].error: {outputs[i].error}")
             actual_output_lens.append(0)
 
     total_output_tokens = sum(actual_output_lens)
@@ -326,7 +325,6 @@ def main(args: argparse.Namespace):
     threads = []
     for i in range(args.num_threads):
         random.shuffle(input_requests)
-        print(f"input_requests[0]: {input_requests[0]}")
         thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests,
                                 args.best_of, args.use_beam_search)
         thread.start()
