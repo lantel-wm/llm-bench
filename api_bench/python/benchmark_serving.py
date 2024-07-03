@@ -71,6 +71,7 @@ class BenchmarkMetrics:
 def sample_sharegpt_requests(
     dataset_path: str,
     num_requests: int,
+    num_turns: int,
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
 ) -> List[Tuple[str, int, int]]:
@@ -81,11 +82,12 @@ def sample_sharegpt_requests(
     # Load the dataset.
     with open(dataset_path) as f:
         dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [(data["conversations"][0]["value"],
-                data["conversations"][1]["value"]) for data in dataset]
+    
+    num_turns *= 2 # Each turn has a prompt and a completion.
+    # Filter out the conversations with less than num_turns.
+    dataset = [data for data in dataset if len(data["conversations"]) >= num_turns]
+    # Only keep the first num_turns of each conversation.
+    dataset = [[data["conversations"][turn]["value"] for turn in range(num_turns)] for data in dataset]
 
     # Shuffle the dataset.
     random.shuffle(dataset)
@@ -95,11 +97,14 @@ def sample_sharegpt_requests(
     for i in range(len(dataset)):
         if len(filtered_dataset) == num_requests:
             break
-
+        
+        prompt = ""
+        for j in range(num_turns - 1):
+            prompt += dataset[i][j] + "\n"
+        completion = dataset[i][-1]
+        
         # Tokenize the prompts and completions.
-        prompt = dataset[i][0]
         prompt_token_ids = tokenizer(prompt).input_ids
-        completion = dataset[i][1]
         completion_token_ids = tokenizer(completion).input_ids
         prompt_len = len(prompt_token_ids)
         output_len = len(completion_token_ids
@@ -107,9 +112,7 @@ def sample_sharegpt_requests(
         if prompt_len < 4 or output_len < 4:
             # Prune too short sequences.
             continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
+        
         filtered_dataset.append((prompt, prompt_len, output_len))
 
     return filtered_dataset
@@ -149,6 +152,7 @@ def calculate_metrics(
             completed += 1
             
         else:
+            # print(f"outputs[{i}].error: {outputs[i].error}")
             actual_output_lens.append(0)
 
     total_output_tokens = sum(actual_output_lens)
@@ -311,6 +315,7 @@ def main(args: argparse.Namespace):
     input_requests = sample_sharegpt_requests(
         dataset_path=args.dataset_path,
         num_requests=args.num_prompts,
+        num_turns=args.num_turns,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
     )               
@@ -320,7 +325,6 @@ def main(args: argparse.Namespace):
     threads = []
     for i in range(args.num_threads):
         random.shuffle(input_requests)
-        print(f"input_requests[0]: {input_requests[0]}")
         thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests,
                                 args.best_of, args.use_beam_search)
         thread.start()
@@ -342,7 +346,7 @@ def main(args: argparse.Namespace):
         dur_s=benchmark_duration,
         tokenizer=tokenizer,
     )
-    benchmark_result = dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
+    dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
 
 
 if __name__ == "__main__":
@@ -419,6 +423,12 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help="Number of threads to use for the benchmark.",
+    )
+    parser.add_argument(
+        "--num-turns",
+        type=int,
+        default=1,
+        help="Number of chat turns to use for the benchmark. A prompt and a completion are considered as one turn.",
     )
     parser.add_argument(
         "--ramp-up-time",

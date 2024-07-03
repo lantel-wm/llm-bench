@@ -92,7 +92,7 @@ def request_openai_completions(
                             if ttft == 0.0:
                                 ttft = time.perf_counter() - st
                                 output.ttft = ttft
-
+                                
                             # Decoding phase
                             # NOTE: Some completion API might have a last
                             # usage summary response without a token so we
@@ -107,6 +107,9 @@ def request_openai_completions(
                 output.generated_text = generated_text
                 output.success = True
                 output.latency = latency
+            else:
+                output.success = False
+                output.error = f"HTTP Status Code: {response.status_code}\nresponse.text: {response.text}"
 
     except Exception:
         output.success = False
