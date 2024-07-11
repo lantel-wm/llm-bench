@@ -90,6 +90,7 @@ def sample_sharegpt_requests(
     dataset = [[data["conversations"][turn]["value"] for turn in range(num_turns)] for data in dataset]
 
     # Shuffle the dataset.
+    random.seed(0)
     random.shuffle(dataset)
 
     # Filter out sequences that are too long or too short
@@ -97,6 +98,9 @@ def sample_sharegpt_requests(
     for i in range(len(dataset)):
         if len(filtered_dataset) == num_requests:
             break
+        
+        if i >= len(dataset):
+            i = i % len(dataset)
         
         prompt = ""
         for j in range(num_turns - 1):
@@ -296,6 +300,10 @@ class benchThread(threading.Thread):
         self.join()
         return self.outputs
 
+def roll(lst: list, n: int):
+    n = n % len(lst)
+    return lst[n:] + lst[:n]
+    
 
 def main(args: argparse.Namespace):
     print(args)
@@ -318,14 +326,18 @@ def main(args: argparse.Namespace):
         num_turns=args.num_turns,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
-    )               
+    ) 
 
     # start benchmark
     benchmark_start_time = time.perf_counter()
     threads = []
     for i in range(args.num_threads):
-        random.shuffle(input_requests)
-        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests,
+        # random.shuffle(input_requests)
+        # input_requests_i = roll(input_requests, i)
+        input_requests_i = input_requests[i:] + input_requests[:i]
+        if i % 2 == 1:
+            input_requests_i = input_requests_i[::-1]
+        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
                                 args.best_of, args.use_beam_search)
         thread.start()
         threads.append(thread)
