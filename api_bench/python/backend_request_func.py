@@ -7,8 +7,6 @@ import requests
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-
-
 HTTP_TIMEOUT = 6 * 60 * 60
 
 @dataclass
@@ -20,6 +18,7 @@ class RequestFuncInput:
     model: str
     best_of: int = 1
     use_beam_search: bool = False
+    thread_id: Optional[int] = None
 
 
 @dataclass
@@ -32,6 +31,7 @@ class RequestFuncOutput:
         default_factory=list)  # List of inter-token latencies
     prompt_len: int = 0
     error: str = ""
+    thread_id: Optional[int] = None
 
 # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
 # introduced in Python 3.9
@@ -63,7 +63,7 @@ def request_openai_completions(
         "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
     }
 
-    output = RequestFuncOutput()
+    output = RequestFuncOutput(thread_id=request_func_input.thread_id)
     output.prompt_len = request_func_input.prompt_len
 
     generated_text = ""

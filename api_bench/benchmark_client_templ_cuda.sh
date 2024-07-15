@@ -9,7 +9,8 @@ if [ -z "$BENCHMARK_LLM" ]; then
 fi
 
 if [ -z "$DATASET_PATH" ]; then
-    DATASET_PATH="$PERF_BASE_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
+    # DATASET_PATH="$PERF_BASE_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
+    DATASET_PATH="$PERF_BASE_PATH/datasets/samples_1024.json"
 fi
 
 if [ -z "$VLLM_SERVER_URL" ];then
