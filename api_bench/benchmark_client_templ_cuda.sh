@@ -14,7 +14,7 @@ if [ -z "$DATASET_PATH" ]; then
 fi
 
 if [ -z "$VLLM_SERVER_URL" ];then
-    VLLM_SERVER_URL="http://10.198.31.25:8000"
+    VLLM_SERVER_URL="10.198.31.25:8000"
 fi
 
 MODEL_SIZE=$1

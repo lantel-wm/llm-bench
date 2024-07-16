@@ -148,10 +148,10 @@ def calculate_metrics(
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
             thread_id = outputs[i].thread_id
-            input_requests_i = input_requests_list[thread_id]
-            print(i, len(input_requests_i))
-            print(i, len(input_requests_i[i]))
-            total_input_tokens += input_requests_i[i][1]
+            request_id = outputs[i].request_id
+            input_request = input_requests_list[thread_id][request_id]
+            # print(f"thread_id: {thread_id}, request_id: {request_id}")
+            total_input_tokens += input_request[1]
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
@@ -255,7 +255,7 @@ def benchmark(
 
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request in get_request(input_requests):
+    for request_id, request in enumerate(get_request(input_requests)):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -269,6 +269,7 @@ def benchmark(
             best_of=best_of,
             use_beam_search=use_beam_search,
             thread_id=thread_id,
+            request_id=request_id,
         )
         outputs.append(request_func(request_func_input=request_func_input))
         
@@ -350,6 +351,7 @@ def main(args: argparse.Namespace):
 
     for thread in threads:
         thread.join()
+        
     benchmark_duration = time.perf_counter() - benchmark_start_time
 
     # gather benchmark result

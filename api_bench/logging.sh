@@ -15,8 +15,8 @@ function create_log() {
         mv "$SERVER_LOG_DIR" "$PERF_BASE_PATH/log/server_${log_date}.log"
     fi
 
-    if [ -f "$PERF_BASE_PATH/benchmark_all_cuda_result.csv" ]; then
-        mv "$PERF_BASE_PATH/benchmark_all_cuda_result.csv" "$PERF_BASE_PATH/benchmark_all_cuda_result_${log_date}.csv"
+    if [ -f "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv" ]; then
+        mv "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv" "$PERF_BASE_PATH/result/benchmark_all_cuda_result_${log_date}.csv"
     fi
 
     echo "[INFO] benchmark_all_cuda.sh started at $(date +"%Y%m%d%H%M%S")" > "$LOG_DIR"
