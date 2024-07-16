@@ -42,7 +42,6 @@ CMD="nohup python -m vllm.entrypoints.openai.api_server \
 --host $VLLM_SERVER_HOST \
 --port $VLLM_SERVER_PORT \
 --uvicorn-log-level warning \
---max-num-seqs $CLIENTS \
 >> log/server.log 2>&1 &"
 
 # --disable-log-stats \

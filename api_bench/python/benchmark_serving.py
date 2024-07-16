@@ -89,6 +89,7 @@ def sample_sharegpt_requests(
     # Only keep the first num_turns of each conversation.
     dataset = [[data["conversations"][turn]["value"] for turn in range(num_turns)] for data in dataset]
 
+
     # Shuffle the dataset.
     random.seed(0)
     random.shuffle(dataset)
@@ -98,9 +99,6 @@ def sample_sharegpt_requests(
     for i in range(len(dataset)):
         if len(filtered_dataset) == num_requests:
             break
-        
-        if i >= len(dataset):
-            i = i % len(dataset)
         
         prompt = ""
         for j in range(num_turns - 1):
@@ -118,6 +116,9 @@ def sample_sharegpt_requests(
             continue
         
         filtered_dataset.append((prompt, prompt_len, output_len))
+        
+        if i == len(dataset) - 1:
+            i = 0
 
     return filtered_dataset
 
@@ -131,7 +132,7 @@ def get_request(
 
 
 def calculate_metrics(
-    input_requests: List[Tuple[str, int, int]],
+    input_requests_list: List[List[Tuple[str, int, int]]],
     outputs: List[RequestFuncOutput],
     dur_s: float,
     tokenizer: PreTrainedTokenizerBase,
@@ -146,7 +147,11 @@ def calculate_metrics(
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
             actual_output_lens.append(output_len)
-            total_input_tokens += input_requests[i][1]
+            thread_id = outputs[i].thread_id
+            request_id = outputs[i].request_id
+            input_request = input_requests_list[thread_id][request_id]
+            # print(f"thread_id: {thread_id}, request_id: {request_id}")
+            total_input_tokens += input_request[1]
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
@@ -250,7 +255,7 @@ def benchmark(
 
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request in get_request(input_requests):
+    for request_id, request in enumerate(get_request(input_requests)):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -263,6 +268,8 @@ def benchmark(
             output_len=output_len,
             best_of=best_of,
             use_beam_search=use_beam_search,
+            thread_id=thread_id,
+            request_id=request_id,
         )
         outputs.append(request_func(request_func_input=request_func_input))
         
@@ -327,23 +334,24 @@ def main(args: argparse.Namespace):
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
     ) 
-
+    
     # start benchmark
     benchmark_start_time = time.perf_counter()
     threads = []
-    for i in range(args.num_threads):
-        # random.shuffle(input_requests)
-        # input_requests_i = roll(input_requests, i)
-        input_requests_i = input_requests[i:] + input_requests[:i]
-        if i % 2 == 1:
+    input_requests_list = []
+    for thread_id in range(args.num_threads):
+        input_requests_i = input_requests[thread_id:] + input_requests[:thread_id]
+        if thread_id % 2 == 1:
             input_requests_i = input_requests_i[::-1]
-        thread = benchThread(i, i * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
+        input_requests_list.append(input_requests_i)
+        thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
                                 args.best_of, args.use_beam_search)
         thread.start()
         threads.append(thread)
 
     for thread in threads:
         thread.join()
+        
     benchmark_duration = time.perf_counter() - benchmark_start_time
 
     # gather benchmark result
@@ -353,7 +361,7 @@ def main(args: argparse.Namespace):
         all_outputs += outputs
         
     metrics, actual_output_lens = calculate_metrics(
-        input_requests=input_requests,
+        input_requests_list=input_requests_list,
         outputs=all_outputs,
         dur_s=benchmark_duration,
         tokenizer=tokenizer,
