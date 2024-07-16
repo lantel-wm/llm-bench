@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package ppl.llm.proto;
+
+service LLMService {
+    rpc Generation (BatchedRequest) returns (stream BatchedResponse) {}
+}
+
+message Tokens {
+    /// Token IDs
+    repeated uint32 ids = 1;
+}
+
+message StoppingCriteriaParameters {
+    /// Maximum number of generated tokens
+    uint32 max_new_tokens = 1;
+    /// Optional stopping tokens array
+    Tokens stop_tokens = 2;
+    /// Ignore end of sequence token
+    /// used for benchmarking
+    bool ignore_eos_token = 3;
+}
+
+message Request {
+    uint64 id = 1;
+    float temperature = 2;
+    string prompt = 3;
+    Tokens tokens = 4;
+    StoppingCriteriaParameters stopping_parameters = 5;
+}
+
+message BatchedRequest {
+    repeated Request req = 1;
+}
+
+enum Status {
+    PROCESSING = 0;
+    FINISHED = 1;
+    FAILED = 2;
+}
+
+message Response {
+    Status status = 1;
+    uint64 id = 2;
+    string generated = 3;
+    Tokens tokens = 4;
+}
+
+message BatchedResponse {
+    repeated Response rsp = 1;
+}

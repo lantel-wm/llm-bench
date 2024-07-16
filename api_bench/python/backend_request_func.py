@@ -2,10 +2,13 @@ import json
 import os
 import sys
 import time
+import grpc
 import traceback
 import requests
 from dataclasses import dataclass, field
 from typing import List, Optional
+
+from ppl_server_utils import llm_pb2, llm_pb2_grpc
 
 HTTP_TIMEOUT = 6 * 60 * 60
 
@@ -20,6 +23,7 @@ class RequestFuncInput:
     use_beam_search: bool = False
     thread_id: Optional[int] = None
     request_id: int = 0
+    num_requests: int = 1
 
 
 @dataclass
@@ -120,8 +124,80 @@ def request_openai_completions(
 
     return output
 
+def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFuncOutput:
+    api_url = request_func_input.api_url
+    channel = grpc.insecure_channel(api_url)
+    stub = llm_pb2_grpc.LLMServiceStub(channel)
+    
+    thread_id = request_func_input.thread_id
+    request_id = request_func_input.request_id
+    num_requests = request_func_input.num_requests
+    id = thread_id * num_requests + request_id
+    
+    request = llm_pb2.Request(
+        id=1,
+        prompt=request_func_input.prompt,
+        temperature=0.0,
+        stopping_parameters=llm_pb2.StoppingCriteriaParameters(
+            max_new_tokens=request_func_input.output_len,
+            ignore_eos_token=True
+        )
+    )
+    output = RequestFuncOutput(thread_id=request_func_input.thread_id, request_id=request_func_input.request_id)
+    
+                    
+
 REQUEST_FUNCS = {
     "vllm": request_openai_completions,
     "lmdeploy": request_openai_completions,
     "openai": request_openai_completions,
 }
+
+def run():
+    # 连接到gRPC服务器
+    channel = grpc.insecure_channel('127.0.0.1:23333')
+    
+    # 创建一个stub（代理对象）
+    stub = llm_pb2_grpc.LLMServiceStub(channel)
+    
+    # 创建一个Request对象
+    request = llm_pb2.Request(
+        id=1,
+        temperature=0.7,
+        prompt="Who are you?",
+        # tokens=llm_pb2.Tokens(ids=[101, 102, 103]),
+        stopping_parameters=llm_pb2.StoppingCriteriaParameters(
+            max_new_tokens=64,
+            stop_tokens=llm_pb2.Tokens(ids=[104]),
+            ignore_eos_token=True
+        )
+    )
+    
+    # 创建一个BatchedRequest对象
+    batched_request = llm_pb2.BatchedRequest(req=[request])
+    
+    # 调用Generation方法
+    ttft = 0.0
+    st = time.perf_counter()
+    response_stream = stub.Generation(batched_request)
+    
+    # 处理服务器返回的流响应
+    generated_text = ""
+    for response in response_stream:
+        for rsp in response.rsp:
+            # print(f"Response ID: {rsp.id}")
+            # print(f"Status: {llm_pb2.Status.Name(rsp.status)}")
+            # print(f"Generated: {rsp.generated}")
+            # print(f"Tokens: {rsp.tokens.ids}")
+            if ttft == 0.0:
+                ttft = time.perf_counter() - st
+            if rsp.status == llm_pb2.Status.FINISHED:
+                latency = time.perf_counter() - st
+                
+            generated_text += rsp.generated
+    print(f"Generated text: {generated_text}")
+    print(f"Time to first token: {ttft}")
+    print(f"Latency: {latency}")
+
+if __name__ == '__main__':
+    run()

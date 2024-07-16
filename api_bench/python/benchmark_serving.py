@@ -314,7 +314,7 @@ def roll(lst: list, n: int):
 
 def main(args: argparse.Namespace):
     print(args)
-    assert args.num_threads > 0, "Number of threads must be greater than 0."
+    assert args.num_requests > 0, "Number of threads must be greater than 0."
     
     backend = args.backend
     model_id = args.model
@@ -339,12 +339,12 @@ def main(args: argparse.Namespace):
     benchmark_start_time = time.perf_counter()
     threads = []
     input_requests_list = []
-    for thread_id in range(args.num_threads):
+    for thread_id in range(args.num_requests):
         input_requests_i = input_requests[thread_id:] + input_requests[:thread_id]
         if thread_id % 2 == 1:
             input_requests_i = input_requests_i[::-1]
         input_requests_list.append(input_requests_i)
-        thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
+        thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_requests, backend, api_url, model_id, tokenizer, input_requests_i,
                                 args.best_of, args.use_beam_search)
         thread.start()
         threads.append(thread)
@@ -422,10 +422,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use-beam-search", action="store_true")
     parser.add_argument(
-        "--num-prompts",
+        "--num-requests",
         type=int,
         default=1000,
-        help="Number of prompts to process.",
+        help="Number of requests to process.",
     )
     parser.add_argument(
         "--sharegpt-output-len",
