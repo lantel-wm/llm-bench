@@ -19,6 +19,7 @@ On the client side, run:
 import argparse
 import threading
 import json
+import logging
 import os
 import random
 import time
@@ -246,6 +247,7 @@ def benchmark(
     best_of: int,
     use_beam_search: bool,
     thread_id: int = -1,
+    num_requests: int = -1,
 ):
     if backend in REQUEST_FUNCS:
         request_func = REQUEST_FUNCS.get(backend)
@@ -270,6 +272,7 @@ def benchmark(
             use_beam_search=use_beam_search,
             thread_id=thread_id,
             request_id=request_id,
+            num_requests=num_requests,
         )
         outputs.append(request_func(request_func_input=request_func_input))
         
@@ -278,7 +281,7 @@ def benchmark(
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search):
+                 best_of, use_beam_search, num_requests):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -289,6 +292,7 @@ class benchThread(threading.Thread):
         self.input_requests = input_requests
         self.best_of = best_of
         self.use_beam_search = use_beam_search
+        self.num_requests = num_requests
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -301,6 +305,7 @@ class benchThread(threading.Thread):
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
                 thread_id=self.thread_id,
+                num_requests=self.num_requests,
             )
         
     def get_result(self):
@@ -313,23 +318,29 @@ def roll(lst: list, n: int):
     
 
 def main(args: argparse.Namespace):
-    print(args)
+    # print(args)
+    logging.debug(args)
     assert args.num_requests > 0, "Number of threads must be greater than 0."
     
     backend = args.backend
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    api_url = f"{args.base_url}{args.endpoint}"
-    if not api_url.startswith("http"):
-        api_url = f"http://{api_url}"
+    if backend in ["vllm", "openai"]:
+        api_url = f"{args.base_url}{args.endpoint}"
+        if not api_url.startswith("http"):
+            api_url = f"http://{api_url}"
+        logging.debug(f"using vllm backend with api url: {api_url}")
+    elif backend in ["ppl"]:
+        api_url = args.base_url
+        logging.debug(f"using ppl backend with api url: {api_url}")
     
     tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
     # sample requests
     input_requests = sample_sharegpt_requests(
         dataset_path=args.dataset_path,
-        num_requests=args.num_prompts,
+        num_requests=args.num_requests,
         num_turns=args.num_turns,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
@@ -345,9 +356,10 @@ def main(args: argparse.Namespace):
             input_requests_i = input_requests_i[::-1]
         input_requests_list.append(input_requests_i)
         thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_requests, backend, api_url, model_id, tokenizer, input_requests_i,
-                                args.best_of, args.use_beam_search)
+                                args.best_of, args.use_beam_search, args.num_requests)
         thread.start()
         threads.append(thread)
+        logging.debug(f"started thread {thread_id} with ramp up time {thread_id * args.ramp_up_time / args.num_requests}")
 
     for thread in threads:
         thread.join()

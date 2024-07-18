@@ -132,10 +132,9 @@ def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFunc
     thread_id = request_func_input.thread_id
     request_id = request_func_input.request_id
     num_requests = request_func_input.num_requests
-    id = thread_id * num_requests + request_id
     
     request = llm_pb2.Request(
-        id=1,
+        id=thread_id * num_requests + request_id,
         prompt=request_func_input.prompt,
         temperature=0.0,
         stopping_parameters=llm_pb2.StoppingCriteriaParameters(
@@ -143,61 +142,71 @@ def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFunc
             ignore_eos_token=True
         )
     )
-    output = RequestFuncOutput(thread_id=request_func_input.thread_id, request_id=request_func_input.request_id)
+    batched_request = llm_pb2.BatchedRequest(req=[request])
     
+    output = RequestFuncOutput(
+        thread_id=request_func_input.thread_id, 
+        request_id=request_func_input.request_id,
+        prompt_len=request_func_input.prompt_len
+    )
+    
+    generated_text = ""
+    ttft = 0.0
+    st = time.perf_counter()
+    most_recent_timestamp = st
+    
+    # try:
+    response_stream = stub.Generation(batched_request)
+    for response in response_stream:
+        for rsp in response.rsp:
+            if rsp.status == llm_pb2.Status.FINISHED:
+                latency = time.perf_counter() - st
+                output.success = True
+                break
+            elif rsp.status == llm_pb2.Status.FAILED:
+                output.success = False
+                output.error = "Response Status: FAILED"
+                break
+            elif rsp.generated:
+                timestamp = time.perf_counter()
+                if ttft == 0.0:
+                    ttft = time.perf_counter() - st
+                    output.ttft = ttft
+                else:
+                    output.itl.append(timestamp - most_recent_timestamp)
+                
+                most_recent_timestamp = timestamp
+                generated_text += rsp.generated
+    
+    output.generated_text = generated_text
+    output.latency = latency
+                       
+    # except Exception:
+    #     output.success = False
+    #     exc_info = sys.exc_info()
+    #     output.error = "".join(traceback.format_exception(*exc_info))
+        
+    return output
                     
 
 REQUEST_FUNCS = {
     "vllm": request_openai_completions,
-    "lmdeploy": request_openai_completions,
     "openai": request_openai_completions,
+    "ppl": request_ppl_completions,
 }
 
-def run():
-    # 连接到gRPC服务器
-    channel = grpc.insecure_channel('127.0.0.1:23333')
-    
-    # 创建一个stub（代理对象）
-    stub = llm_pb2_grpc.LLMServiceStub(channel)
-    
-    # 创建一个Request对象
-    request = llm_pb2.Request(
-        id=1,
-        temperature=0.7,
-        prompt="Who are you?",
-        # tokens=llm_pb2.Tokens(ids=[101, 102, 103]),
-        stopping_parameters=llm_pb2.StoppingCriteriaParameters(
-            max_new_tokens=64,
-            stop_tokens=llm_pb2.Tokens(ids=[104]),
-            ignore_eos_token=True
-        )
+if __name__ == '__main__':
+    request_func_input = RequestFuncInput(
+        prompt="The future of AI is here.\nThe future of AI is here. The technology is already being used in a variety of industries, from healthcare to manufacturing.\nThe future of AI is here. The technology is already being used in a variety of industries, from healthcare to manufacturing. But what does",
+        api_url="127.0.0.1:23333",
+        prompt_len=1,
+        output_len=64,
+        model="llama",
+        thread_id=0,
+        request_id=0,
+        num_requests=1024,
     )
     
-    # 创建一个BatchedRequest对象
-    batched_request = llm_pb2.BatchedRequest(req=[request])
+    output = request_ppl_completions(request_func_input)
     
-    # 调用Generation方法
-    ttft = 0.0
-    st = time.perf_counter()
-    response_stream = stub.Generation(batched_request)
-    
-    # 处理服务器返回的流响应
-    generated_text = ""
-    for response in response_stream:
-        for rsp in response.rsp:
-            # print(f"Response ID: {rsp.id}")
-            # print(f"Status: {llm_pb2.Status.Name(rsp.status)}")
-            # print(f"Generated: {rsp.generated}")
-            # print(f"Tokens: {rsp.tokens.ids}")
-            if ttft == 0.0:
-                ttft = time.perf_counter() - st
-            if rsp.status == llm_pb2.Status.FINISHED:
-                latency = time.perf_counter() - st
-                
-            generated_text += rsp.generated
-    print(f"Generated text: {generated_text}")
-    print(f"Time to first token: {ttft}")
-    print(f"Latency: {latency}")
-
-if __name__ == '__main__':
-    run()
+    print(output)
