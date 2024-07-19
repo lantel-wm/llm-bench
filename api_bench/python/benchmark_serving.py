@@ -34,6 +34,9 @@ from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 @dataclass
 class BenchmarkMetrics:
@@ -124,12 +127,12 @@ def sample_sharegpt_requests(
     return filtered_dataset
 
 
-def get_request(
-    input_requests: List[Tuple[str, int, int]],
-):
-    input_requests = iter(input_requests)
-    for request in input_requests:
-        yield request
+# def get_request(
+#     input_requests: List[Tuple[str, int, int]],
+# ):
+#     input_requests = iter(input_requests)
+#     for request_id, request in enumerate(input_requests):
+#         yield request_id, request
 
 
 def calculate_metrics(
@@ -210,6 +213,7 @@ def dump_metrics_and_results(
     benchmark_duration: float
 ):
     # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
+    print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
     csv_line += f"{metrics.request_throughput:.3f},"
@@ -254,10 +258,11 @@ def benchmark(
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-
+    logging.debug(f"Starting benchmark for backend: {backend}, model_id: {model_id}, thread_id: {thread_id}, num_requests: {num_requests}")
+    
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request_id, request in enumerate(get_request(input_requests)):
+    for request_id, request in enumerate(input_requests):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -274,6 +279,7 @@ def benchmark(
             request_id=request_id,
             num_requests=num_requests,
         )
+        logging.debug(f"Request {request_id} for thread {thread_id} with prompt_len {prompt_len} and output_len {output_len}")
         outputs.append(request_func(request_func_input=request_func_input))
         
     return outputs
@@ -350,16 +356,16 @@ def main(args: argparse.Namespace):
     benchmark_start_time = time.perf_counter()
     threads = []
     input_requests_list = []
-    for thread_id in range(args.num_requests):
+    for thread_id in range(args.num_threads):
         input_requests_i = input_requests[thread_id:] + input_requests[:thread_id]
         if thread_id % 2 == 1:
             input_requests_i = input_requests_i[::-1]
         input_requests_list.append(input_requests_i)
-        thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_requests, backend, api_url, model_id, tokenizer, input_requests_i,
+        thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
                                 args.best_of, args.use_beam_search, args.num_requests)
         thread.start()
         threads.append(thread)
-        logging.debug(f"started thread {thread_id} with ramp up time {thread_id * args.ramp_up_time / args.num_requests}")
+        logging.debug(f"started thread {thread_id} with ramp up time {thread_id * args.ramp_up_time / args.num_threads}")
 
     for thread in threads:
         thread.join()
