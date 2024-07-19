@@ -274,8 +274,8 @@ def request_trt_llm(
 
 REQUEST_FUNCS = {
     "vllm": request_openai_completions,
-    "openai": request_openai_completions,
     "ppl": request_ppl_completions,
+    "trt": request_trt_llm,
 }
 
 if __name__ == '__main__':
