@@ -34,7 +34,7 @@ from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -213,7 +213,7 @@ def dump_metrics_and_results(
     benchmark_duration: float
 ):
     # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
-    print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
+    # print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
     csv_line += f"{metrics.request_throughput:.3f},"

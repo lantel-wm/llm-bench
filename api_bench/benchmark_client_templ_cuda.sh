@@ -70,7 +70,7 @@ CMD="python ${BENCHMARK_LLM} \
 --model $MODEL_DIR \
 --dataset-name sharegpt \
 --dataset-path $DATASET_PATH \
---num-prompts $PROMPTS \
+--num-requests $PROMPTS \
 --num-turns $TURNS \
 --num-threads $CLIENTS \
 --ramp-up-time $RAMP_UP_TIME \

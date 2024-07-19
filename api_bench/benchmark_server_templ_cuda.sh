@@ -22,7 +22,7 @@ function check_server_status() {
 MODEL_SIZE=$1
 TP_SIZE=$2
 CLIENTS=$3
-SERVER_PID=$(bash "$PERF_BASE_PATH/start_server.sh" "$MODEL_SIZE" "$TP_SIZE" "$CLIENTS")
+SERVER_PID=$(bash "$PERF_BASE_PATH/start_vllm_server.sh" "$MODEL_SIZE" "$TP_SIZE" "$CLIENTS")
 
 if [ ! -n "$SERVER_PID" ]; then
     echo "[ERROR] SERVER START FAILED"

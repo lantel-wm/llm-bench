@@ -11,7 +11,7 @@ from typing import List, Optional
 
 from ppl_server_utils import llm_pb2, llm_pb2_grpc
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.WARNING,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -51,6 +51,7 @@ def remove_prefix(text: str, prefix: str) -> str:
         return text[len(prefix):]
     return text
 
+# curl -X POST http://10.198.31.25:8000/v1/completions -H "Content-Type: application/json" -d '{"model": "/mnt/llm2/llm_perf/hf_models/llama-7b-hf", "prompt": "Once upon a time", "temperature": 0.0, "best_of": 1, "max_tokens": 10, "min_tokens": 10, "stream": true, "ignore_eos": true}'
 def request_openai_completions(
     request_func_input: RequestFuncInput,
 ) -> RequestFuncOutput:
@@ -73,9 +74,14 @@ def request_openai_completions(
     headers = {
         "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
     }
+    
+    # curl -X POST 10.198.31.25:8000/v1/completions -H "Authorization: Bearer YOUR_API_KEY" -d '{"model": "/mnt/llm2/llm_perf/hf_models/llama-7b-hf", "prompt": "Once upon a time", "temperature": 0.0, "best_of": 1, "max_tokens": 100, "min_tokens": 100, "stream": true, "ignore_eos": true}'
 
-    output = RequestFuncOutput(thread_id=request_func_input.thread_id, request_id=request_func_input.request_id)
-    output.prompt_len = request_func_input.prompt_len
+    output = RequestFuncOutput(
+        thread_id=request_func_input.thread_id, 
+        request_id=request_func_input.request_id,
+        prompt_len=request_func_input.prompt_len,
+    )
 
     generated_text = ""
     ttft = 0.0
@@ -160,103 +166,109 @@ def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFunc
     st = time.perf_counter()
     most_recent_timestamp = st
     
-    # try:
-    response_stream = stub.Generation(batched_request)
-    for response in response_stream:
-        for rsp in response.rsp:
-            if rsp.status == llm_pb2.Status.FINISHED:
-                logging.info(f"Request {request.id} finished")
-                latency = time.perf_counter() - st
-                output.success = True
-                break
-            elif rsp.status == llm_pb2.Status.FAILED:
-                logging.warning(f"Request {request.id} failed")
-                output.success = False
-                output.error = "Response Status: FAILED"
-                break
-            elif rsp.generated:
-                timestamp = time.perf_counter()
-                if ttft == 0.0:
-                    ttft = time.perf_counter() - st
-                    output.ttft = ttft
-                else:
-                    output.itl.append(timestamp - most_recent_timestamp)
-                
-                most_recent_timestamp = timestamp
-                generated_text += rsp.generated
-    
-    output.generated_text = generated_text
-    output.latency = latency
+    try:
+        response_stream = stub.Generation(batched_request)
+        for response in response_stream:
+            for rsp in response.rsp:
+                if rsp.status == llm_pb2.Status.FINISHED:
+                    logging.info(f"Request {request.id} finished")
+                    latency = time.perf_counter() - st
+                    output.success = True
+                    break
+                elif rsp.status == llm_pb2.Status.FAILED:
+                    logging.warning(f"Request {request.id} failed")
+                    output.success = False
+                    output.error = "Response Status: FAILED"
+                    break
+                elif rsp.generated:
+                    timestamp = time.perf_counter()
+                    if ttft == 0.0:
+                        ttft = time.perf_counter() - st
+                        output.ttft = ttft
+                    else:
+                        output.itl.append(timestamp - most_recent_timestamp)
+                    
+                    most_recent_timestamp = timestamp
+                    generated_text += rsp.generated
+        
+        output.generated_text = generated_text
+        output.latency = latency
                        
-    # except Exception:
-    #     output.success = False
-    #     exc_info = sys.exc_info()
-    #     output.error = "".join(traceback.format_exception(*exc_info))
+    except Exception:
+        output.success = False
+        exc_info = sys.exc_info()
+        output.error = "".join(traceback.format_exception(*exc_info))
         
     return output
 
-# # curl -X POST localhost:8000/v2/models/ensemble/generate_stream -d '{"accumulate_tokens": true, "text_input": "What is ML?", "temperature": 0.0, "top_p": 1.0, "max_tokens": 50, "stream": true}'
-# def request_trt_llm(
-#     request_func_input: RequestFuncInput,
-# ) -> RequestFuncOutput:
-#     api_url = request_func_input.api_url
-#     assert api_url.endswith("generate_stream")
+# curl -X POST 127.0.0.1:8000/v2/models/ensemble/generate_stream -d \
+#'{"text_input": "What is ML?", "max_tokens": 500, "bad_words": "", "stop_words": "", "pad_id": 2, "end_id": -1, "stream": true}'
+def request_trt_llm(
+    request_func_input: RequestFuncInput,
+) -> RequestFuncOutput:
+    api_url = request_func_input.api_url
+    assert api_url.endswith("generate_stream")
+    assert not request_func_input.use_beam_search
+    assert request_func_input.best_of == 1
+    
+    payload = {
+        "text_input": request_func_input.prompt,
+        "temperature": 0.0,
+        "max_tokens": request_func_input.output_len,
+        "bad_words": "",
+        "stop_words": "",
+        "pad_id": 2,
+        "end_id": -1,
+        "stream": True,
+    }
+    output = RequestFuncOutput(
+        thread_id=request_func_input.thread_id,
+        request_id=request_func_input.request_id,
+        prompt_len=request_func_input.prompt_len
+    )
 
-#     assert not request_func_input.use_beam_search
-#     assert request_func_input.best_of == 1
-#     payload = {
-#         "accumulate_tokens": True,
-#         "text_input": request_func_input.prompt,
-#         "temperature": 0.0,
-#         "top_p": 1.0,
-#         "max_tokens": request_func_input.output_len,
-#         "stream": True,
-#     }
-#     output = RequestFuncOutput()
-#     output.prompt_len = request_func_input.prompt_len
+    generated_text = ""
+    ttft = 0.0
+    st = time.perf_counter()
+    most_recent_timestamp = st
+    try:
+        with requests.post(url=api_url, json=payload) as response:
+            if response.status_code == 200:
+                for chunk in response.iter_lines():
+                    chunk = chunk.strip()
+                    if not chunk:
+                        continue
+                    chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+                    
+                    data = json.loads(chunk)
+                    generated_text += data["text_output"]
+                    timestamp = time.perf_counter()
+                    # First token
+                    if ttft == 0.0:
+                        ttft = time.perf_counter() - st
+                        output.ttft = ttft
+                        
+                    # Decoding phase
+                    else:
+                        output.itl.append(timestamp -
+                                            most_recent_timestamp)
 
-#     ttft = 0.0
-#     st = time.perf_counter()
-#     most_recent_timestamp = st
-#     try:
-#         with requests.post(url=api_url, json=payload, 
-#             stream=True, timeout=HTTP_TIMEOUT) as response:
-#             if response.status_code == 200:
-#                 for chunk in response.iter_lines():
-#                     chunk = chunk.strip()
-#                     if not chunk_bytes:
-#                         continue
+                    most_recent_timestamp = timestamp
 
-#                     chunk = remove_prefix(chunk_bytes.decode("utf-8"),
-#                                             "data:")
+                output.generated_text = generated_text
+                output.success = True
+                output.latency = most_recent_timestamp - st
+            else:
+                output.success = False
+                output.error = f"HTTP Status Code: {response.status_code}\nresponse.reason: {response.reason}"
 
-#                     data = json.loads(chunk)
-#                     output.generated_text += data["text_output"]
-#                     timestamp = time.perf_counter()
-#                     # First token
-#                     if ttft == 0.0:
-#                         ttft = time.perf_counter() - st
-#                         output.ttft = ttft
+    except Exception:
+        output.success = False
+        exc_info = sys.exc_info()
+        output.error = "".join(traceback.format_exception(*exc_info))
 
-#                     # Decoding phase
-#                     else:
-#                         output.itl.append(timestamp -
-#                                             most_recent_timestamp)
+    return output
 
-#                     most_recent_timestamp = timestamp
-
-#                 output.latency = most_recent_timestamp - st
-#                 output.success = True
-
-#             else:
-#                 output.error = response.reason or ""
-#                 output.success = False
-#     except Exception:
-#         output.success = False
-#         exc_info = sys.exc_info()
-#         output.error = "".join(traceback.format_exception(*exc_info))
-
-#     return output
 
                     
 
