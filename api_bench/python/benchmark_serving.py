@@ -46,6 +46,8 @@ class BenchmarkMetrics:
     total_output: int
     mean_input_tokens: float
     mean_output_tokens: float
+    max_input_tokens: int
+    max_output_tokens: int
     request_throughput: float
     in_out_throughput: float
     output_throughput: float
@@ -179,6 +181,8 @@ def calculate_metrics(
         total_output=total_output_tokens,
         mean_input_tokens=total_input_tokens / completed,
         mean_output_tokens=total_output_tokens / completed,
+        max_input_tokens=max(input_request[1] for input_request in input_requests_list),
+        max_output_tokens=max(actual_output_lens),
         request_throughput=completed / dur_s,
         in_out_throughput=(total_input_tokens + total_output_tokens) / dur_s,
         output_throughput=total_output_tokens / dur_s,
@@ -221,6 +225,8 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.request_throughput:.3f},"
     csv_line += f"{metrics.mean_input_tokens:.3f},"
     csv_line += f"{metrics.mean_output_tokens:.3f},"
+    csv_line += f"{metrics.max_input_tokens:.3f},"
+    csv_line += f"{metrics.max_output_tokens:.3f},"
     csv_line += f"{metrics.output_throughput:.3f},"
     csv_line += f"{metrics.in_out_throughput:.3f},"
     csv_line += f"{metrics.min_ttft_ms:.3f},"

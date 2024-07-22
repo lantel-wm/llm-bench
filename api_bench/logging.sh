@@ -29,7 +29,7 @@ function create_log() {
 
     touch "$SERVER_LOG_DIR"
 
-    echo "model_size(B),tp,num_clients,mode,success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,\
+    echo "model_size(B),tp,num_clients,mode,success_rate,qps,avg_inlen,avg_outlen,max_inlen,max_outlen,o_tps,io_tps,\
 min_ttft(ms),max_ttft(ms),mean_ttft(ms),median_ttft(ms),p90_ttft(ms),p99_ttft(ms),\
 min_tpot(ms),max_tpot(ms),mean_tpot(ms),median_tpot(ms),p90_tpot(ms),p99_tpot(ms),\
 min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv"
