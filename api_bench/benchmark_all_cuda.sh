@@ -28,7 +28,7 @@ function unittest() {
     else
         echo "[OK] $RES"
         INFO "[OK] $RES"
-        echo "$MODEL_SIZE,$GPUS,$CLIENTS,$MODE,$RES" >> "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv"
+        echo "$MODEL_SIZE,$GPUS,$CLIENTS,$MODE,$RES" >> "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv"
     fi
 }
 
@@ -83,7 +83,7 @@ for MODE in "${_MODE_LIST[@]}"; do
 
 for GPUS in "${_7B_TP_LIST[@]}"; do
     # model_size tp num_requests ramp_up_time stop_time mode
-    launch_server_and_test 7 "$GPUS" 1024 1 300 "$MODE"
+    launch_server_and_test 7 "$GPUS" 1024 1 30 "$MODE"
 done
 
 # for GPUS in "${_13B_TP_LIST[@]}"; do
