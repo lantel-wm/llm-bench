@@ -74,7 +74,7 @@ _70B_TP_LIST=(8)
 
 # _NUM_CLIENTS_LIST=(16 32 64 128 256 512)
 # _NUM_CLIENTS_LIST=(1 5 10 20 30 40 50 60 70 80 100)
-_NUM_CLIENTS_LIST=(1 1 1 5 5 5 10 10 10 20 20 20 30 30 30 40 40 40 50 50 50 60 60 60 70 70 70 80 80 80 100 100 100)
+_NUM_CLIENTS_LIST=(1 1 5 5 10 10 20 20 30 30 40 40 50 50 60 60 70 70 80 80 100 100)
 # _NUM_CLIENTS_LIST=(60)
 # _NUM_TURNS_LIST=(1 2 4 8 16)
 _NUM_TURNS_LIST=(1)
@@ -82,7 +82,7 @@ _NUM_TURNS_LIST=(1)
 for MODE in "${_MODE_LIST[@]}"; do
 
 for GPUS in "${_7B_TP_LIST[@]}"; do
-    # model_size tp num_prompts num_clients ramp_up_time stop_time mode
+    # model_size tp num_requests ramp_up_time stop_time mode
     launch_server_and_test 7 "$GPUS" 1024 1 300 "$MODE"
 done
 

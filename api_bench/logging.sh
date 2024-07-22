@@ -21,8 +21,8 @@ function create_log() {
         mv "$SERVER_LOG_DIR" "$PERF_BASE_PATH/log/server_${BACKEND}_${log_date}.log"
     fi
 
-    if [ -f "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv" ]; then
-        mv "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv" "$PERF_BASE_PATH/result/benchmark_all_cuda_result_${log_date}.csv"
+    if [ -f "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv" ]; then
+        mv "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv" "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result_${log_date}.csv"
     fi
 
     echo "[INFO] benchmark_all_cuda.sh started at $(date +"%Y%m%d%H%M%S")" > "$LOG_DIR"
@@ -32,7 +32,7 @@ function create_log() {
     echo "model_size(B),tp,num_clients,mode,success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,\
 min_ttft(ms),max_ttft(ms),mean_ttft(ms),median_ttft(ms),p90_ttft(ms),p99_ttft(ms),\
 min_tpot(ms),max_tpot(ms),mean_tpot(ms),median_tpot(ms),p90_tpot(ms),p99_tpot(ms),\
-min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv"
+min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv"
 
 }
 
