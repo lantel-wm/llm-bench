@@ -5,11 +5,7 @@ PERF_BASE_PATH=$(dirname "$SCRIPT")
 LOG_DIR="$PERF_BASE_PATH/benchmark_one_cuda.log"
 
 if [ -z "$BENCHMARK_LLM" ]; then
-    echo "[ERROR] please set env BENCHMARK_LLM to the python benchmark script"
-    if [ -f "$LOG_DIR" ]; then
-        echo "[ERROR] please set env BENCHMARK_LLM to the python benchmark script" > "$LOG_DIR"
-    fi
-    exit 1
+    BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_latency_cu11.py"
 fi
 
 MODEL_SIZE=$1
@@ -42,7 +38,7 @@ if [ -z "$OUT_LEN" ]; then
     OUT_LEN=256
 fi
 
-MODEL_DIR="$PERF_BASE_PATH/../hf_models/llama-${MODEL_SIZE}b-hf"
+MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
 # MODEL_PARAM_PATH="$PERF_BASE_PATH/../hf_models/llama_${MODEL_SIZE}b_${TP_SIZE}gpu/params.json"
 WARMUP_LOOPS=2
 BENCHMARK_LOOPS=2

@@ -33,7 +33,12 @@ if [ -z "$CLIENTS" ]; then
 fi
 
 # MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
-MODEL_DIR="/mnt/llm/LLaMA/test/opmx_models/${MODEL_SIZE}B_db1_fq1_fk1_ff1_ac1_qc1_cm0_cl3_${TP_SIZE}gpu"
+
+if [ -z "$OPMX_MODEL_PATH" ]; then
+    OPMX_MODEL_PATH="/mnt/llm/LLaMA/test/opmx_models"
+fi
+
+MODEL_DIR="${OPMX_MODEL_PATH}/${MODEL_SIZE}B_db1_fq1_fk1_ff1_ac1_qc1_cm0_cl3_${TP_SIZE}gpu"
 
 
 CMD="nohup ${PPL_SERVER_PATH} \

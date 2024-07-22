@@ -23,6 +23,11 @@ export BACKEND=vllm
 export BACKEND=ppl
 ```
 
+若要测试PPL动态性能要需要准备opmx格式的权重，设置`OPMX_MODEL_PATH`环境变量：
+```shell
+export OPMX_MODEL_PATH=/path/to/your/model/opmx_models
+```
+
 ## 测试启动
 
 ```shell
@@ -71,6 +76,8 @@ python python/benchmark_serving.py --host YOUR_IP_ADDRESS --port 23333 --model P
 
 ## 参数设置
 
+`--backend`：测试使用的后端，目前支持vllm和ppl。
+
 `--num-threads`：并发数，为1则执行动态并发，大于1则控制并发数固定。
 
 `--num-requests`：每个并发的测试的请求数量。总请求数量需要乘以并发数。
@@ -78,3 +85,4 @@ python python/benchmark_serving.py --host YOUR_IP_ADDRESS --port 23333 --model P
 `--thread-stop-time`：每个并发的测试的持续时间，单位秒。
 
 `--ramp-up-time`：所有线程的起转时间，用来模拟实际情况中request交错到来的情况，单位秒。
+
