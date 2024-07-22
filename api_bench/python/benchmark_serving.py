@@ -345,6 +345,13 @@ def main(args: argparse.Namespace):
     elif backend in ["ppl"]:
         api_url = args.base_url
         logging.debug(f"using ppl backend with api url: {api_url}")
+    elif backend in ["trt"]:
+        api_url = args.base_url
+        if not api_url.startswith("http"):
+            api_url = f"http://{api_url}"
+        if not api_url.endswith("/v2/models/ensemble/generate_stream"):
+            api_url = f"{api_url}/v2/models/ensemble/generate_stream"
+        logging.debug(f"using trt backend with api url: {api_url}")
     
     tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
