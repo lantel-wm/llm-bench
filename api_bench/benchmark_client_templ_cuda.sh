@@ -73,11 +73,7 @@ if [ -z "$SERVER_URL" ];then
     fi
 fi
 
-CMD="export http_proxy=\
-export HTTP_PROXY=\
-export HTTPS_PROXY=\
-export https_proxy=\
-python ${BENCHMARK_LLM} \
+CMD="python ${BENCHMARK_LLM} \
 --base-url $SERVER_URL \
 --backend $BACKEND \
 --model $MODEL_DIR \

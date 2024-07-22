@@ -4,6 +4,10 @@ SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 BACKEND=$1
 
+if [ -z "$BACKEND" ]; then
+    BACKEND="vllm"
+fi
+
 function unittest() {
     MODEL_SIZE=$1
     GPUS=$2
@@ -59,7 +63,7 @@ function launch_server_and_test() {
 
 
 source "$PERF_BASE_PATH/logging.sh"
-create_log
+create_log "$BACKEND"
 
 _MODE_LIST=(fp16)
 _7B_TP_LIST=(1)
