@@ -1,9 +1,15 @@
 #!/bin/bash
 
+BACKEND=$1
+
+if [ -z "$BACKEND" ]; then
+    BACKEND="vllm"
+fi
+
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 LOG_DIR="$PERF_BASE_PATH/log/benchmark_all_cuda.log"
-SERVER_LOG_DIR="$PERF_BASE_PATH/log/server.log"
+SERVER_LOG_DIR="$PERF_BASE_PATH/log/server_$BACKEND.log"
 
 function create_log() {
     if [ -f "$LOG_DIR" ]; then
@@ -12,7 +18,7 @@ function create_log() {
     fi
 
     if [ -f "$SERVER_LOG_DIR" ]; then
-        mv "$SERVER_LOG_DIR" "$PERF_BASE_PATH/log/server_${log_date}.log"
+        mv "$SERVER_LOG_DIR" "$PERF_BASE_PATH/log/server_${BACKEND}_${log_date}.log"
     fi
 
     if [ -f "$PERF_BASE_PATH/result/benchmark_all_cuda_result.csv" ]; then

@@ -4,25 +4,41 @@ SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
 source "$PERF_BASE_PATH/logging.sh"
 
-if [ -z "$VLLM_SERVER_URL" ];then
-    VLLM_SERVER_URL="http://10.198.31.25:8000"
+MODEL_SIZE=$1
+TP_SIZE=$2
+CLIENTS=$3
+BACKEND=$4
+SERVER_PID=$(bash "$PERF_BASE_PATH/start_${BACKEND}_server.sh" "$MODEL_SIZE" "$TP_SIZE" "$CLIENTS")
+
+if [ -z "$SERVER_URL" ];then
+    if [ "$BACKEND" == "vllm" ]; then
+        SERVER_URL="http://10.198.31.25:8000"
+    elif [ "$BACKEND" == "ppl" ]; then
+        SERVER_URL="127.0.0.1:23333"
+    fi
 fi
 
 function check_server_status() {
-    local url="${VLLM_SERVER_URL}/v1/models"
-    response=$(curl -s "${url}")
-    
-    if [[ $response == *"\"object\":\"list\""* ]]; then
+    if [ "$BACKEND" == "vllm" ]; then
+        CMD="python $PERF_BASE_PATH/python/check_server_status.py --server-url $SERVER_URL --backend vllm --model $PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+        status=$(eval "$CMD")
+    elif [ "$BACKEND" == "ppl" ]; then
+        CMD="python $PERF_BASE_PATH/python/check_server_status.py --server-url $SERVER_URL --backend ppl"
+        status=$(eval "$CMD")
+    fi
+
+    if [ -z "$status" ]; then
+        echo "[ERROR] SERVER STATUS CHECK FAILED"
+    fi
+
+    if [ "$status" == "OK" ]; then
         return 0
     else
         return 1
     fi
 }
 
-MODEL_SIZE=$1
-TP_SIZE=$2
-CLIENTS=$3
-SERVER_PID=$(bash "$PERF_BASE_PATH/start_server.sh" "$MODEL_SIZE" "$TP_SIZE" "$CLIENTS")
+
 
 if [ ! -n "$SERVER_PID" ]; then
     echo "[ERROR] SERVER START FAILED"

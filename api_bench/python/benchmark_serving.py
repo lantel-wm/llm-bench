@@ -19,6 +19,7 @@ On the client side, run:
 import argparse
 import threading
 import json
+import logging
 import os
 import random
 import time
@@ -33,6 +34,9 @@ from transformers import PreTrainedTokenizerBase
 
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
+logging.basicConfig(level=logging.WARNING,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 @dataclass
 class BenchmarkMetrics:
@@ -123,12 +127,12 @@ def sample_sharegpt_requests(
     return filtered_dataset
 
 
-def get_request(
-    input_requests: List[Tuple[str, int, int]],
-):
-    input_requests = iter(input_requests)
-    for request in input_requests:
-        yield request
+# def get_request(
+#     input_requests: List[Tuple[str, int, int]],
+# ):
+#     input_requests = iter(input_requests)
+#     for request_id, request in enumerate(input_requests):
+#         yield request_id, request
 
 
 def calculate_metrics(
@@ -209,6 +213,7 @@ def dump_metrics_and_results(
     benchmark_duration: float
 ):
     # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
+    # print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
     csv_line += f"{metrics.request_throughput:.3f},"
@@ -246,16 +251,18 @@ def benchmark(
     best_of: int,
     use_beam_search: bool,
     thread_id: int = -1,
+    num_requests: int = -1,
 ):
     if backend in REQUEST_FUNCS:
         request_func = REQUEST_FUNCS.get(backend)
     else:
         raise ValueError(f"Unknown backend: {backend}")
 
-
+    logging.debug(f"Starting benchmark for backend: {backend}, model_id: {model_id}, thread_id: {thread_id}, num_requests: {num_requests}")
+    
     benchmark_start_time = time.perf_counter()
     outputs = []
-    for request_id, request in enumerate(get_request(input_requests)):
+    for request_id, request in enumerate(input_requests):
         if args.thread_stop_time > 0 and time.perf_counter() - benchmark_start_time >= args.thread_stop_time:
             break
         
@@ -270,7 +277,9 @@ def benchmark(
             use_beam_search=use_beam_search,
             thread_id=thread_id,
             request_id=request_id,
+            num_requests=num_requests,
         )
+        logging.debug(f"Request {request_id} for thread {thread_id} with prompt_len {prompt_len} and output_len {output_len}")
         outputs.append(request_func(request_func_input=request_func_input))
         
     return outputs
@@ -278,7 +287,7 @@ def benchmark(
 
 class benchThread(threading.Thread):
     def __init__(self, thread_id, ramp_up_time, backend, api_url, model_id, tokenizer, input_requests,
-                 best_of, use_beam_search):
+                 best_of, use_beam_search, num_requests):
         super(benchThread, self).__init__()
         self.thread_id = thread_id
         self.ramp_up_time = ramp_up_time
@@ -289,6 +298,7 @@ class benchThread(threading.Thread):
         self.input_requests = input_requests
         self.best_of = best_of
         self.use_beam_search = use_beam_search
+        self.num_requests = num_requests
         
     def run(self):
         time.sleep(self.ramp_up_time)
@@ -301,6 +311,7 @@ class benchThread(threading.Thread):
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
                 thread_id=self.thread_id,
+                num_requests=self.num_requests,
             )
         
     def get_result(self):
@@ -313,23 +324,34 @@ def roll(lst: list, n: int):
     
 
 def main(args: argparse.Namespace):
-    print(args)
-    assert args.num_threads > 0, "Number of threads must be greater than 0."
+    # unset http proxy
+    os.environ["http_proxy"] = ""
+    os.environ["HTTP_PROXY"] = ""
+    os.environ["HTTPS_PROXY"] = ""
+    os.environ["https_proxy"] = ""
+    # print(args)
+    logging.debug(args)
+    assert args.num_requests > 0, "Number of threads must be greater than 0."
     
     backend = args.backend
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    api_url = f"{args.base_url}{args.endpoint}"
-    if not api_url.startswith("http"):
-        api_url = f"http://{api_url}"
+    if backend in ["vllm", "openai"]:
+        api_url = f"{args.base_url}{args.endpoint}"
+        if not api_url.startswith("http"):
+            api_url = f"http://{api_url}"
+        logging.debug(f"using vllm backend with api url: {api_url}")
+    elif backend in ["ppl"]:
+        api_url = args.base_url
+        logging.debug(f"using ppl backend with api url: {api_url}")
     
     tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
 
     # sample requests
     input_requests = sample_sharegpt_requests(
         dataset_path=args.dataset_path,
-        num_requests=args.num_prompts,
+        num_requests=args.num_requests,
         num_turns=args.num_turns,
         tokenizer=tokenizer,
         fixed_output_len=args.sharegpt_output_len,
@@ -345,9 +367,10 @@ def main(args: argparse.Namespace):
             input_requests_i = input_requests_i[::-1]
         input_requests_list.append(input_requests_i)
         thread = benchThread(thread_id, thread_id * args.ramp_up_time / args.num_threads, backend, api_url, model_id, tokenizer, input_requests_i,
-                                args.best_of, args.use_beam_search)
+                                args.best_of, args.use_beam_search, args.num_requests)
         thread.start()
         threads.append(thread)
+        logging.debug(f"started thread {thread_id} with ramp up time {thread_id * args.ramp_up_time / args.num_threads}")
 
     for thread in threads:
         thread.join()
@@ -422,10 +445,10 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use-beam-search", action="store_true")
     parser.add_argument(
-        "--num-prompts",
+        "--num-requests",
         type=int,
         default=1000,
-        help="Number of prompts to process.",
+        help="Number of requests to process.",
     )
     parser.add_argument(
         "--sharegpt-output-len",
