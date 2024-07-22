@@ -150,6 +150,8 @@ def calculate_metrics(
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = len(tokenizer(outputs[i].generated_text).input_ids)
+            print(f"generated_text: {outputs[i].generated_text}")
+            print(f"output_len: {output_len}")
             actual_output_lens.append(output_len)
             thread_id = outputs[i].thread_id
             request_id = outputs[i].request_id

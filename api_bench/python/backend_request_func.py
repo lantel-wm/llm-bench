@@ -92,11 +92,11 @@ def request_openai_completions(
                            headers=headers, stream=True,
                            timeout=HTTP_TIMEOUT) as response:
             if response.status_code == 200:
-                for chunk in response.iter_lines():
-                    chunk = chunk.strip()
-                    if not chunk:
+                for chunk_bytes in response.iter_lines():
+                    chunk_bytes = chunk_bytes.strip()
+                    if not chunk_bytes:
                         continue
-                    chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+                    chunk = remove_prefix(chunk_bytes.decode("utf-8"), "data: ")
                     
                     if chunk == "[DONE]":
                         latency = time.perf_counter() - st
