@@ -324,6 +324,11 @@ def roll(lst: list, n: int):
     
 
 def main(args: argparse.Namespace):
+    # unset http proxy
+    os.environ["http_proxy"] = ""
+    os.environ["HTTP_PROXY"] = ""
+    os.environ["HTTPS_PROXY"] = ""
+    os.environ["https_proxy"] = ""
     # print(args)
     logging.debug(args)
     assert args.num_requests > 0, "Number of threads must be greater than 0."

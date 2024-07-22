@@ -2,6 +2,7 @@
 
 SCRIPT=$(realpath -s "$0")
 PERF_BASE_PATH=$(dirname "$SCRIPT")
+BACKEND=$1
 
 function unittest() {
     MODEL_SIZE=$1
@@ -15,7 +16,7 @@ function unittest() {
 
     echo "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} TURNS$TURNS CLIENTS$CLIENTS RAMP_UP_TIME$RAMP_UP_TIME STOP_TIME$STOP_TIME ${MODE^^}]"
     INFO "[BENCHMARK ${MODEL_SIZE}B TP${GPUS} TURNS$TURNS CLIENTS$CLIENTS RAMP_UP_TIME$RAMP_UP_TIME STOP_TIME$STOP_TIME ${MODE^^}]"
-    RES=$(bash "$PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh" "${MODEL_SIZE}" "${GPUS}" "${PROMPTS}" "${TURNS}" "${CLIENTS}" "${RAMP_UP_TIME}" "${STOP_TIME}" | grep "CSV format output")
+    RES=$(bash "$PERF_BASE_PATH/benchmark_one_cuda_${MODE}.sh" "${MODEL_SIZE}" "${GPUS}" "${PROMPTS}" "${TURNS}" "${CLIENTS}" "${RAMP_UP_TIME}" "${STOP_TIME}" "${BACKEND}" | grep "CSV format output")
     RES=${RES##*:}
 
     if [ -z "$RES" ]; then
@@ -35,7 +36,7 @@ function launch_server_and_test() {
     STOP_TIME=$5
     MODE=$6
 
-    SERVER_PID=$(bash "$PERF_BASE_PATH"/benchmark_server_templ_cuda.sh "$MODEL_SIZE" "$GPUS" "$CLIENTS" | grep -o "[0-9]\+")
+    SERVER_PID=$(bash "$PERF_BASE_PATH"/benchmark_server_templ_cuda.sh "$MODEL_SIZE" "$GPUS" "$CLIENTS" "$BACKEND" | grep -o "[0-9]\+")
     SERVER_PID=${SERVER_PID##*:}
 
     if [ -z "$SERVER_PID" ]; then
@@ -57,10 +58,8 @@ function launch_server_and_test() {
 }
 
 
-
 source "$PERF_BASE_PATH/logging.sh"
 create_log
-
 
 _MODE_LIST=(fp16)
 _7B_TP_LIST=(1)
