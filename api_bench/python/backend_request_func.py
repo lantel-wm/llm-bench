@@ -92,11 +92,11 @@ def request_openai_completions(
                            headers=headers, stream=True,
                            timeout=HTTP_TIMEOUT) as response:
             if response.status_code == 200:
-                for chunk in response.iter_lines():
-                    chunk = chunk.strip()
-                    if not chunk:
+                for chunk_bytes in response.iter_lines():
+                    chunk_bytes = chunk_bytes.strip()
+                    if not chunk_bytes:
                         continue
-                    chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+                    chunk = remove_prefix(chunk_bytes.decode("utf-8"), "data: ")
                     
                     if chunk == "[DONE]":
                         latency = time.perf_counter() - st
@@ -232,13 +232,14 @@ def request_trt_llm(
     st = time.perf_counter()
     most_recent_timestamp = st
     try:
-        with requests.post(url=api_url, json=payload) as response:
+        with requests.post(url=api_url, json=payload, 
+                           stream=True, timeout=HTTP_TIMEOUT) as response:
             if response.status_code == 200:
-                for chunk in response.iter_lines():
-                    chunk = chunk.strip()
-                    if not chunk:
+                for chunk_bytes in response.iter_lines():
+                    chunk_bytes = chunk_bytes.strip()
+                    if not chunk_bytes:
                         continue
-                    chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+                    chunk = remove_prefix(chunk_bytes.decode("utf-8"), "data: ")
                     
                     data = json.loads(chunk)
                     generated_text += data["text_output"]
