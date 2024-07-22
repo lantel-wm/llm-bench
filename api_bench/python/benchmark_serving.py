@@ -46,6 +46,8 @@ class BenchmarkMetrics:
     total_output: int
     mean_input_tokens: float
     mean_output_tokens: float
+    max_input_tokens: int
+    max_output_tokens: int
     request_throughput: float
     in_out_throughput: float
     output_throughput: float
@@ -143,6 +145,8 @@ def calculate_metrics(
 ) -> Tuple[BenchmarkMetrics, List[int]]:
     actual_output_lens = []
     total_input_tokens = 0
+    max_input_tokens = 0
+    max_output_tokens = 0
     completed = 0
     tpots = []
     ttfts = []
@@ -158,6 +162,8 @@ def calculate_metrics(
             input_request = input_requests_list[thread_id][request_id]
             # print(f"thread_id: {thread_id}, request_id: {request_id}")
             total_input_tokens += input_request[1]
+            max_input_tokens = max(max_input_tokens, input_request[1])
+            max_output_tokens = max(max_output_tokens, input_request[1])
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
@@ -179,6 +185,8 @@ def calculate_metrics(
         total_output=total_output_tokens,
         mean_input_tokens=total_input_tokens / completed,
         mean_output_tokens=total_output_tokens / completed,
+        max_input_tokens=max_input_tokens,
+        max_output_tokens=max_output_tokens,
         request_throughput=completed / dur_s,
         in_out_throughput=(total_input_tokens + total_output_tokens) / dur_s,
         output_throughput=total_output_tokens / dur_s,
@@ -221,6 +229,8 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.request_throughput:.3f},"
     csv_line += f"{metrics.mean_input_tokens:.3f},"
     csv_line += f"{metrics.mean_output_tokens:.3f},"
+    csv_line += f"{metrics.max_input_tokens},"
+    csv_line += f"{metrics.max_output_tokens},"
     csv_line += f"{metrics.output_throughput:.3f},"
     csv_line += f"{metrics.in_out_throughput:.3f},"
     csv_line += f"{metrics.min_ttft_ms:.3f},"
