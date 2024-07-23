@@ -80,6 +80,7 @@ def sample_sharegpt_requests(
     num_turns: int,
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
+    system_prompt_path: Optional[str] = None,
 ) -> List[Tuple[str, int, int]]:
     # print("[I] Sampling requests...")
     if fixed_output_len is not None and fixed_output_len < 4:
@@ -110,6 +111,11 @@ def sample_sharegpt_requests(
         for j in range(num_turns - 1):
             prompt += dataset[i][j] + "\n"
         completion = dataset[i][-1]
+        
+        if system_prompt_path is not None:
+            with open(system_prompt_path) as f:
+                prompt = f.read() + '\n' + prompt
+            
         
         # Tokenize the prompts and completions.
         prompt_token_ids = tokenizer(prompt).input_ids
@@ -153,14 +159,11 @@ def calculate_metrics(
     e2es = []
     for i in range(len(outputs)):
         if outputs[i].success:
-            output_len = len(tokenizer(outputs[i].generated_text).input_ids)
-            print(f"generated_text: {outputs[i].generated_text}")
-            print(f"output_len: {output_len}")
+            output_len = outputs[i].output_len
             actual_output_lens.append(output_len)
             thread_id = outputs[i].thread_id
             request_id = outputs[i].request_id
             input_request = input_requests_list[thread_id][request_id]
-            # print(f"thread_id: {thread_id}, request_id: {request_id}")
             total_input_tokens += input_request[1]
             max_input_tokens = max(max_input_tokens, input_request[1])
             max_output_tokens = max(max_output_tokens, input_request[1])
@@ -173,7 +176,6 @@ def calculate_metrics(
             completed += 1
             
         else:
-            # print(f"outputs[{i}].error: {outputs[i].error}")
             actual_output_lens.append(0)
 
     total_output_tokens = sum(actual_output_lens)
@@ -503,6 +505,12 @@ if __name__ == "__main__":
         type=float,
         default=0,
         help="Stop time in seconds for each thread.",
+    )
+    parser.add_argument(
+        "--system-prompt-path",
+        type=str,
+        default=None,
+        help="Path to the system prompt file. None for no system prompt.",
     )
 
     args = parser.parse_args()
