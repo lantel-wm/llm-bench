@@ -80,6 +80,7 @@ def sample_sharegpt_requests(
     num_turns: int,
     tokenizer: PreTrainedTokenizerBase,
     fixed_output_len: Optional[int] = None,
+    system_prompt_path: Optional[str] = None,
 ) -> List[Tuple[str, int, int]]:
     # print("[I] Sampling requests...")
     if fixed_output_len is not None and fixed_output_len < 4:
@@ -110,6 +111,11 @@ def sample_sharegpt_requests(
         for j in range(num_turns - 1):
             prompt += dataset[i][j] + "\n"
         completion = dataset[i][-1]
+        
+        if system_prompt_path is not None:
+            with open(system_prompt_path) as f:
+                prompt = f.read() + '\n' + prompt
+            
         
         # Tokenize the prompts and completions.
         prompt_token_ids = tokenizer(prompt).input_ids
@@ -503,6 +509,12 @@ if __name__ == "__main__":
         type=float,
         default=0,
         help="Stop time in seconds for each thread.",
+    )
+    parser.add_argument(
+        "--system-prompt-path",
+        type=str,
+        default=None,
+        help="Path to the system prompt file. None for no system prompt.",
     )
 
     args = parser.parse_args()
