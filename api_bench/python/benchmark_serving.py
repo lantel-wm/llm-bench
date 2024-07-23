@@ -159,14 +159,11 @@ def calculate_metrics(
     e2es = []
     for i in range(len(outputs)):
         if outputs[i].success:
-            output_len = len(tokenizer(outputs[i].generated_text).input_ids)
-            print(f"generated_text: {outputs[i].generated_text}")
-            print(f"output_len: {output_len}")
+            output_len = outputs[i].output_len
             actual_output_lens.append(output_len)
             thread_id = outputs[i].thread_id
             request_id = outputs[i].request_id
             input_request = input_requests_list[thread_id][request_id]
-            # print(f"thread_id: {thread_id}, request_id: {request_id}")
             total_input_tokens += input_request[1]
             max_input_tokens = max(max_input_tokens, input_request[1])
             max_output_tokens = max(max_output_tokens, input_request[1])
@@ -179,7 +176,6 @@ def calculate_metrics(
             completed += 1
             
         else:
-            # print(f"outputs[{i}].error: {outputs[i].error}")
             actual_output_lens.append(0)
 
     total_output_tokens = sum(actual_output_lens)

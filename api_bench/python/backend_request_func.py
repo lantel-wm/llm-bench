@@ -40,6 +40,7 @@ class RequestFuncOutput:
     itl: List[float] = field(
         default_factory=list)  # List of inter-token latencies
     prompt_len: int = 0
+    output_len: int = 0
     error: str = ""
     thread_id: Optional[int] = None
     request_id: int = 0
@@ -84,6 +85,7 @@ def request_openai_completions(
     )
 
     generated_text = ""
+    output_len = 0
     ttft = 0.0
     st = time.perf_counter()
     most_recent_timestamp = st
@@ -120,8 +122,10 @@ def request_openai_completions(
 
                             most_recent_timestamp = timestamp
                             generated_text += data["choices"][0]["text"]
+                            output_len += 1
 
                 output.generated_text = generated_text
+                output.output_len = output_len
                 output.success = True
                 output.latency = latency
             else:
@@ -162,6 +166,7 @@ def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFunc
     )
     
     generated_text = ""
+    output_len = 0
     ttft = 0.0
     st = time.perf_counter()
     most_recent_timestamp = st
@@ -170,28 +175,33 @@ def request_ppl_completions(request_func_input: RequestFuncInput) -> RequestFunc
         response_stream = stub.Generation(batched_request)
         for response in response_stream:
             for rsp in response.rsp:
-                if rsp.status == llm_pb2.Status.FINISHED:
-                    logging.info(f"Request {request.id} finished")
-                    latency = time.perf_counter() - st
-                    output.success = True
-                    break
-                elif rsp.status == llm_pb2.Status.FAILED:
+                if rsp.status == llm_pb2.Status.FAILED:
                     logging.warning(f"Request {request.id} failed")
                     output.success = False
                     output.error = "Response Status: FAILED"
                     break
-                elif rsp.generated:
-                    timestamp = time.perf_counter()
-                    if ttft == 0.0:
-                        ttft = time.perf_counter() - st
-                        output.ttft = ttft
-                    else:
-                        output.itl.append(timestamp - most_recent_timestamp)
-                    
-                    most_recent_timestamp = timestamp
-                    generated_text += rsp.generated
+                
+                else:
+                    if rsp.generated:
+                        timestamp = time.perf_counter()
+                        if ttft == 0.0:
+                            ttft = time.perf_counter() - st
+                            output.ttft = ttft
+                        else:
+                            output.itl.append(timestamp - most_recent_timestamp)
+                        
+                        most_recent_timestamp = timestamp
+                        generated_text += rsp.generated
+                        output_len += 1
+                        
+                    if rsp.status == llm_pb2.Status.FINISHED:
+                        logging.info(f"Request {request.id} finished")
+                        latency = time.perf_counter() - st
+                        output.success = True
+                        break
         
         output.generated_text = generated_text
+        output.output_len = output_len
         output.latency = latency
                        
     except Exception:
@@ -228,6 +238,7 @@ def request_trt_llm(
     )
 
     generated_text = ""
+    output_len = 0
     ttft = 0.0
     st = time.perf_counter()
     most_recent_timestamp = st
@@ -243,6 +254,7 @@ def request_trt_llm(
                     
                     data = json.loads(chunk)
                     generated_text += data["text_output"]
+                    output_len += 1
                     timestamp = time.perf_counter()
                     # First token
                     if ttft == 0.0:
@@ -251,12 +263,12 @@ def request_trt_llm(
                         
                     # Decoding phase
                     else:
-                        output.itl.append(timestamp -
-                                            most_recent_timestamp)
+                        output.itl.append(timestamp - most_recent_timestamp)
 
                     most_recent_timestamp = timestamp
 
                 output.generated_text = generated_text
+                output.output_len = output_len
                 output.success = True
                 output.latency = most_recent_timestamp - st
             else:
@@ -280,17 +292,36 @@ REQUEST_FUNCS = {
 }
 
 if __name__ == '__main__':
+    import os
+    os.environ["http_proxy"] = ""
+    os.environ["HTTP_PROXY"] = ""
+    os.environ["HTTPS_PROXY"] = ""
+    os.environ["https_proxy"] = ""
     request_func_input = RequestFuncInput(
-        prompt="The future of AI is here.\nThe future of AI is here. The technology is already being used in a variety of industries, from healthcare to manufacturing.\nThe future of AI is here. The technology is already being used in a variety of industries, from healthcare to manufacturing. But what does",
-        api_url="127.0.0.1:23333",
-        prompt_len=1,
-        output_len=64,
-        model="llama",
+        prompt="The future of AI is",
+        # api_url="127.0.0.1:23333",
+        api_url="http://10.198.31.25:8000/v1/completions",
+        prompt_len=150,
+        output_len=300,
+        model="/mnt/llm2/llm_perf/hf_models/llama-7b-hf",
         thread_id=0,
         request_id=0,
         num_requests=1024,
     )
     
-    output = request_ppl_completions(request_func_input)
+    output = request_openai_completions(request_func_input)
+    print(f"output.success: {output.success}")
+    print(f"output.generated_text: {output.generated_text}")
+    print(f"output.prompt_len: {output.prompt_len}")
+    print(f"output.output_len: {output.output_len}")
+    print(f"output.latency: {output.latency}")
+    print(f"output.ttft: {output.ttft}")
+    print(f"output.error: {output.error}")
     
-    print(output)
+    from vllm.transformers_utils.tokenizer import get_tokenizer
+    
+    tokenizer = get_tokenizer("/mnt/llm2/llm_perf/hf_models/llama-7b-hf", trust_remote_code=True)
+    
+    output_len = len(tokenizer(output.generated_text).input_ids)
+    
+    print(f"output_len: {output_len}")
