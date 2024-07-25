@@ -57,7 +57,7 @@ if [ -z "$MODEL_DIR" ];then
 fi
 
 if [ -z "$BENCHMARK_LLM" ]; then
-    BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_serving.py"
+    BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_serving_num_clients.py"
 fi
 
 if [ -z "$DATASET_PATH" ]; then

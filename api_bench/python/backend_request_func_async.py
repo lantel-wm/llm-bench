@@ -3,14 +3,18 @@ import os
 import sys
 import time
 import traceback
+import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Union
 
 import aiohttp
 import huggingface_hub.constants
-from tqdm.asyncio import tqdm
 from transformers import (AutoTokenizer, PreTrainedTokenizer,
                           PreTrainedTokenizerFast)
+
+logging.basicConfig(level=logging.WARNING,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S')
 
 AIOHTTP_TIMEOUT = aiohttp.ClientTimeout(total=6 * 60 * 60)
 
@@ -25,7 +29,6 @@ class RequestFuncInput:
     best_of: int = 1
     use_beam_search: bool = False
     request_id: int = 0
-    num_requests: int = 1
 
 
 @dataclass
@@ -45,7 +48,6 @@ class RequestFuncOutput:
 
 async def async_request_openai_completions(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith(
@@ -70,6 +72,7 @@ async def async_request_openai_completions(
         output.prompt_len = request_func_input.prompt_len
 
         generated_text = ""
+        output_len = 0
         ttft = 0.0
         st = time.perf_counter()
         most_recent_timestamp = st
@@ -105,8 +108,10 @@ async def async_request_openai_completions(
 
                                 most_recent_timestamp = timestamp
                                 generated_text += data["choices"][0]["text"]
+                                output_len += 1
 
                     output.generated_text = generated_text
+                    output.output_len = output_len
                     output.success = True
                     output.latency = latency
                 else:
@@ -117,14 +122,11 @@ async def async_request_openai_completions(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-    if pbar:
-        pbar.update(1)
     return output
 
 
 async def async_request_openai_chat_completions(
     request_func_input: RequestFuncInput,
-    pbar: Optional[tqdm] = None,
 ) -> RequestFuncOutput:
     api_url = request_func_input.api_url
     assert api_url.endswith(
@@ -201,8 +203,6 @@ async def async_request_openai_chat_completions(
             exc_info = sys.exc_info()
             output.error = "".join(traceback.format_exception(*exc_info))
 
-    if pbar:
-        pbar.update(1)
     return output
 
 

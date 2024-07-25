@@ -56,6 +56,7 @@ class BenchmarkMetrics:
     max_ttft_ms: float
     mean_ttft_ms: float
     median_ttft_ms: float
+    std_ttft_ms: float
     p90_ttft_ms: float
     p99_ttft_ms: float
     
@@ -63,6 +64,7 @@ class BenchmarkMetrics:
     max_tpot_ms: float
     mean_tpot_ms: float
     median_tpot_ms: float
+    std_tpot_ms: float
     p90_tpot_ms: float
     p99_tpot_ms: float
     
@@ -70,8 +72,18 @@ class BenchmarkMetrics:
     max_e2e_ms: float
     mean_e2e_ms: float
     median_e2e_ms: float
+    std_e2e_ms: float
     p90_e2e_ms: float
     p99_e2e_ms: float
+    
+    min_itl_ms: float
+    max_itl_ms: float
+    mean_itl_ms: float
+    median_itl_ms: float
+    std_itl_ms: float
+    p90_itl_ms: float
+    p99_itl_ms: float
+
 
 
 def sample_sharegpt_requests(
@@ -154,9 +166,10 @@ def calculate_metrics(
     max_input_tokens = 0
     max_output_tokens = 0
     completed = 0
-    tpots = []
-    ttfts = []
-    e2es = []
+    itls: List[float] = []
+    tpots: List[float] = []
+    ttfts: List[float] = []
+    e2es: List[float] = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = outputs[i].output_len
@@ -197,6 +210,7 @@ def calculate_metrics(
         max_ttft_ms=np.max(ttfts or 0) * 1000,
         mean_ttft_ms=np.mean(ttfts or 0) * 1000,
         median_ttft_ms=np.median(ttfts or 0) * 1000,
+        std_ttft_ms=np.std(ttfts or 0) * 1000,
         p90_ttft_ms=np.percentile(ttfts or 0, 90) * 1000,
         p99_ttft_ms=np.percentile(ttfts or 0, 99) * 1000,
         
@@ -204,6 +218,7 @@ def calculate_metrics(
         max_tpot_ms=np.max(tpots or 0) * 1000,
         mean_tpot_ms=np.mean(tpots or 0) * 1000,
         median_tpot_ms=np.median(tpots or 0) * 1000,
+        std_tpot_ms=np.std(tpots or 0) * 1000,
         p90_tpot_ms=np.percentile(tpots or 0, 90) * 1000,
         p99_tpot_ms=np.percentile(tpots or 0, 99) * 1000,
         
@@ -211,8 +226,17 @@ def calculate_metrics(
         max_e2e_ms=np.max(e2es or 0) * 1000,
         mean_e2e_ms=np.mean(e2es or 0) * 1000,
         median_e2e_ms=np.median(e2es or 0) * 1000,
+        std_e2e_ms=np.std(e2es or 0) * 1000,
         p90_e2e_ms=np.percentile(e2es or 0, 90) * 1000,
         p99_e2e_ms=np.percentile(e2es or 0, 99) * 1000,
+        
+        min_itl_ms=np.min(itls or 0) * 1000,
+        max_itl_ms=np.max(itls or 0) * 1000,
+        mean_itl_ms=np.mean(itls or 0) * 1000,
+        median_itl_ms=np.median(itls or 0) * 1000,
+        std_itl_ms=np.std(itls or 0) * 1000,
+        p90_itl_ms=np.percentile(itls or 0, 90) * 1000,
+        p99_itl_ms=np.percentile(itls or 0, 99) * 1000,
     )
 
     return metrics, actual_output_lens
@@ -221,8 +245,13 @@ def calculate_metrics(
 def dump_metrics_and_results(
     metrics: BenchmarkMetrics, 
 ):
-    # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
-    # print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
+    print("CSV header output:\
+success_rate,qps,avg_inlen,avg_outlen,max_inlen,max_outlen,o_tps,io_tps,\
+min_ttft,max_ttft,mean_ttft,median_ttft,std_ttft,p90_ttft,p99_ttft,\
+min_tpot,max_tpot,mean_tpot,median_tpot,std_tpot,p90_tpot,p99_tpot,\
+min_e2e,max_e2e,mean_e2e,median_e2e,std_e2e,p90_e2e,p99_e2e,\
+min_itl,max_itl,mean_itl,median_itl,std_itl,p90_itl,p99_itl")
+          
     csv_line = ""
     csv_line += f"{metrics.successful_rate:.3f},"
     csv_line += f"{metrics.request_throughput:.3f},"
@@ -232,26 +261,41 @@ def dump_metrics_and_results(
     csv_line += f"{metrics.max_output_tokens},"
     csv_line += f"{metrics.output_throughput:.3f},"
     csv_line += f"{metrics.in_out_throughput:.3f},"
+    
     csv_line += f"{metrics.min_ttft_ms:.3f},"
     csv_line += f"{metrics.max_ttft_ms:.3f},"
     csv_line += f"{metrics.mean_ttft_ms:.3f},"
     csv_line += f"{metrics.median_ttft_ms:.3f},"
+    csv_line += f"{metrics.std_ttft_ms:.3f},"
     csv_line += f"{metrics.p90_ttft_ms:.3f},"
     csv_line += f"{metrics.p99_ttft_ms:.3f},"
+    
     csv_line += f"{metrics.min_tpot_ms:.3f},"
     csv_line += f"{metrics.max_tpot_ms:.3f},"
     csv_line += f"{metrics.mean_tpot_ms:.3f},"
     csv_line += f"{metrics.median_tpot_ms:.3f},"
+    csv_line += f"{metrics.std_tpot_ms:.3f},"
     csv_line += f"{metrics.p90_tpot_ms:.3f},"
     csv_line += f"{metrics.p99_tpot_ms:.3f},"
+    
     csv_line += f"{metrics.min_e2e_ms:.3f},"
     csv_line += f"{metrics.max_e2e_ms:.3f},"
     csv_line += f"{metrics.mean_e2e_ms:.3f},"
     csv_line += f"{metrics.median_e2e_ms:.3f},"
+    csv_line += f"{metrics.std_e2e_ms:.3f},"
     csv_line += f"{metrics.p90_e2e_ms:.3f},"
-    csv_line += f"{metrics.p99_e2e_ms:.3f}"
-    print(f"CSV format output:{csv_line}")
+    csv_line += f"{metrics.p99_e2e_ms:.3f},"
     
+    csv_line += f"{metrics.min_itl_ms:.3f},"
+    csv_line += f"{metrics.max_itl_ms:.3f},"
+    csv_line += f"{metrics.mean_itl_ms:.3f},"
+    csv_line += f"{metrics.median_itl_ms:.3f},"
+    csv_line += f"{metrics.std_itl_ms:.3f},"
+    csv_line += f"{metrics.p90_itl_ms:.3f},"
+    csv_line += f"{metrics.p99_itl_ms:.3f}"
+    
+    print(f"CSV format output:{csv_line}")
+
 
 def benchmark(
     backend: str,
@@ -333,7 +377,7 @@ def roll(lst: list, n: int):
     return lst[n:] + lst[:n]
     
 
-def run(args: argparse.Namespace):
+def main(args: argparse.Namespace):
     # unset http proxy
     os.environ["http_proxy"] = ""
     os.environ["HTTP_PROXY"] = ""
@@ -503,4 +547,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    run(args)
+    main(args)
