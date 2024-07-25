@@ -166,7 +166,7 @@ def calculate_metrics(
             input_request = input_requests_list[thread_id][request_id]
             total_input_tokens += input_request[1]
             max_input_tokens = max(max_input_tokens, input_request[1])
-            max_output_tokens = max(max_output_tokens, input_request[1])
+            max_output_tokens = max(max_output_tokens, output_len)
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
@@ -200,19 +200,19 @@ def calculate_metrics(
         p90_ttft_ms=np.percentile(ttfts or 0, 90) * 1000,
         p99_ttft_ms=np.percentile(ttfts or 0, 99) * 1000,
         
-        min_tpot_ms=np.min(tpots) * 1000,
-        max_tpot_ms=np.max(tpots) * 1000,
-        mean_tpot_ms=np.mean(tpots) * 1000,
-        median_tpot_ms=np.median(tpots) * 1000,
-        p90_tpot_ms=np.percentile(tpots, 90) * 1000,
-        p99_tpot_ms=np.percentile(tpots, 99) * 1000,
+        min_tpot_ms=np.min(tpots or 0) * 1000,
+        max_tpot_ms=np.max(tpots or 0) * 1000,
+        mean_tpot_ms=np.mean(tpots or 0) * 1000,
+        median_tpot_ms=np.median(tpots or 0) * 1000,
+        p90_tpot_ms=np.percentile(tpots or 0, 90) * 1000,
+        p99_tpot_ms=np.percentile(tpots or 0, 99) * 1000,
         
-        min_e2e_ms=np.min(e2es) * 1000,
-        max_e2e_ms=np.max(e2es) * 1000,
-        mean_e2e_ms=np.mean(e2es) * 1000,
-        median_e2e_ms=np.median(e2es) * 1000,
-        p90_e2e_ms=np.percentile(e2es, 90) * 1000,
-        p99_e2e_ms=np.percentile(e2es, 99) * 1000,
+        min_e2e_ms=np.min(e2es or 0) * 1000,
+        max_e2e_ms=np.max(e2es or 0) * 1000,
+        mean_e2e_ms=np.mean(e2es or 0) * 1000,
+        median_e2e_ms=np.median(e2es or 0) * 1000,
+        p90_e2e_ms=np.percentile(e2es or 0, 90) * 1000,
+        p99_e2e_ms=np.percentile(e2es or 0, 99) * 1000,
     )
 
     return metrics, actual_output_lens
@@ -220,9 +220,6 @@ def calculate_metrics(
 
 def dump_metrics_and_results(
     metrics: BenchmarkMetrics, 
-    actual_output_lens: List[int],
-    outputs: List[RequestFuncOutput], 
-    benchmark_duration: float
 ):
     # success_rate, qps, avg_inlen, avg_outlen, o_tps, io_tps, min_ttft, max_ttft, mean_ttft, median_ttft, p90_ttft, p99_ttft, min_tpot, max_tpot, mean_tpot, median_tpot, p90_tpot, p99_tpot, min_tpr, max_tpr, mean_tpr, median_tpr, p90_tpr, p99_tpr
     # print("CSV header output:success_rate,qps,avg_inlen,avg_outlen,o_tps,io_tps,min_ttft,max_ttft,mean_ttft,median_ttft,p90_ttft,p99_ttft,min_tpot,max_tpot,mean_tpot,median_tpot,p90_tpot,p99_tpot,min_e2e,max_e2e,mean_e2e,median_e2e,p90_e2e,p99_e2e")
@@ -260,7 +257,6 @@ def benchmark(
     backend: str,
     api_url: str,
     model_id: str,
-    tokenizer: PreTrainedTokenizerBase,
     input_requests: List[Tuple[str, int, int]],
     best_of: int,
     use_beam_search: bool,
@@ -337,7 +333,7 @@ def roll(lst: list, n: int):
     return lst[n:] + lst[:n]
     
 
-def main(args: argparse.Namespace):
+def run(args: argparse.Namespace):
     # unset http proxy
     os.environ["http_proxy"] = ""
     os.environ["HTTP_PROXY"] = ""
@@ -434,13 +430,6 @@ if __name__ == "__main__":
         default="/v1/completions",
         help="API endpoint.",
     )
-    parser.add_argument(
-        "--dataset-name",
-        type=str,
-        default="sharegpt",
-        choices=["sharegpt", "sonnet"],
-        help="Name of the dataset to benchmark on.",
-    )
     parser.add_argument("--dataset-path",
                         type=str,
                         default=None,
@@ -514,4 +503,4 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    main(args)
+    run(args)
