@@ -183,7 +183,7 @@ def calculate_metrics(
             if output_len > 1:
                 tpots.append(
                     (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
-                
+            itls += outputs[i].itl
             ttfts.append(outputs[i].ttft)
             e2es.append(outputs[i].latency)
             completed += 1
@@ -360,7 +360,6 @@ class benchThread(threading.Thread):
                 backend=self.backend,
                 api_url=self.api_url,
                 model_id=self.model_id,
-                tokenizer=self.tokenizer,
                 input_requests=self.input_requests,
                 best_of=self.best_of,
                 use_beam_search=self.use_beam_search,
@@ -450,7 +449,7 @@ def main(args: argparse.Namespace):
         dur_s=benchmark_duration,
         tokenizer=tokenizer,
     )
-    dump_metrics_and_results(metrics, actual_output_lens, all_outputs, benchmark_duration)   
+    dump_metrics_and_results(metrics)   
 
 
 if __name__ == "__main__":

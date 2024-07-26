@@ -29,10 +29,11 @@ function create_log() {
 
     touch "$SERVER_LOG_DIR"
 
-    echo "model_size(B),tp,num_clients,mode,success_rate,qps,avg_inlen,avg_outlen,max_inlen,max_outlen,o_tps,io_tps,\
-min_ttft(ms),max_ttft(ms),mean_ttft(ms),median_ttft(ms),p90_ttft(ms),p99_ttft(ms),\
-min_tpot(ms),max_tpot(ms),mean_tpot(ms),median_tpot(ms),p90_tpot(ms),p99_tpot(ms),\
-min_e2e(ms),max_e2e(ms),mean_e2e(ms),median_e2e(ms),p90_e2e(ms),p99_e2e(ms)" > "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv"
+    echo "success_rate,qps,avg_inlen,avg_outlen,max_inlen,max_outlen,o_tps,io_tps,\
+min_ttft,max_ttft,mean_ttft,median_ttft,std_ttft,p90_ttft,p99_ttft,\
+min_tpot,max_tpot,mean_tpot,median_tpot,std_tpot,p90_tpot,p99_tpot,\
+min_e2e,max_e2e,mean_e2e,median_e2e,std_e2e,p90_e2e,p99_e2e,\
+min_itl,max_itl,mean_itl,median_itl,std_itl,p90_itl,p99_itl" > "$PERF_BASE_PATH/result/benchmark_${BACKEND}_all_cuda_result.csv"
 
 }
 
