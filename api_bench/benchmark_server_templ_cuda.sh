@@ -12,9 +12,9 @@ SERVER_PID=$(bash "$PERF_BASE_PATH/start_${BACKEND}_server.sh" "$MODEL_SIZE" "$T
 
 if [ -z "$SERVER_URL" ];then
     if [ "$BACKEND" == "vllm" ]; then
-        SERVER_URL="127.0.0.1:8000"
+        SERVER_URL="${VLLM_SERVER_URL}"
     elif [ "$BACKEND" == "ppl" ]; then
-        SERVER_URL="127.0.0.1:23333"
+        SERVER_URL="${PPL_SERVER_URL}"
     fi
 fi
 
