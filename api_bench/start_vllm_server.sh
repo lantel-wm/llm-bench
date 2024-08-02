@@ -29,7 +29,12 @@ if [ -z "$CLIENTS" ]; then
     CLIENTS=1
 fi
 
-MODEL_DIR="/mnt/llm/llm_perf/hf_models/llama-${MODEL_SIZE}b-hf"
+if [ -z "$HF_MODEL_PATH" ]; then
+    HF_MODEL_PATH="/mnt/llm/llm_perf/hf_models"
+fi
+
+# CHANGE MODEL_DIR ACCORDINGLY
+MODEL_DIR="${HF_MODEL_PATH}/llama-${MODEL_SIZE}b-hf"
 
 # python -m vllm.entrypoints.openai.api_server --model /mnt/llm2/llm_perf/hf_models/llama-7b-hf --swap-space 16 --disable-log-requests --enforce-eager --host 10.198.31.25  --port 8000
 

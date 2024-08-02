@@ -38,6 +38,7 @@ if [ -z "$OPMX_MODEL_PATH" ]; then
     OPMX_MODEL_PATH="/mnt/llm/llm_perf/opmx_models"
 fi
 
+# CHANGE MODEL_DIR ACCORDINGLY
 MODEL_DIR="${OPMX_MODEL_PATH}/llama_${MODEL_SIZE}b_${TP_SIZE}gpu"
 
 
