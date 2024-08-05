@@ -53,7 +53,7 @@ if [ -z "$BACKEND" ]; then
 fi
 
 if [ -z "$MODEL_DIR" ];then
-    MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+    MODEL_DIR="/mnt/llm/llm_perf/hf_models/llama-${MODEL_SIZE}b-hf"
 fi
 
 if [ -z "$BENCHMARK_LLM" ]; then
@@ -61,13 +61,13 @@ if [ -z "$BENCHMARK_LLM" ]; then
 fi
 
 if [ -z "$DATASET_PATH" ]; then
-    # DATASET_PATH="$PERF_BASE_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
+    # DATASET_PATH="$PERF_BASE_PATH/datasets/ShareGPT_V3_unfiltered_cleaned_split.json"
     DATASET_PATH="$PERF_BASE_PATH/datasets/samples_1024.json"
 fi
 
 if [ -z "$SERVER_URL" ];then
     if [ "$BACKEND" = "vllm" ]; then
-        SERVER_URL="10.198.31.25:8000"
+        SERVER_URL="127.0.0.1:8000"
     elif [ "$BACKEND" = "ppl" ]; then
         SERVER_URL="127.0.0.1:23333"
     fi
@@ -77,7 +77,6 @@ CMD="python ${BENCHMARK_LLM} \
 --base-url $SERVER_URL \
 --backend $BACKEND \
 --model $MODEL_DIR \
---dataset-name sharegpt \
 --dataset-path $DATASET_PATH \
 --num-requests $PROMPTS \
 --num-turns $TURNS \

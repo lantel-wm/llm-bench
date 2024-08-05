@@ -12,15 +12,19 @@ SERVER_PID=$(bash "$PERF_BASE_PATH/start_${BACKEND}_server.sh" "$MODEL_SIZE" "$T
 
 if [ -z "$SERVER_URL" ];then
     if [ "$BACKEND" == "vllm" ]; then
-        SERVER_URL="http://10.198.31.25:8000"
+        SERVER_URL="${VLLM_SERVER_URL}"
     elif [ "$BACKEND" == "ppl" ]; then
-        SERVER_URL="127.0.0.1:23333"
+        SERVER_URL="${PPL_SERVER_URL}"
     fi
+fi
+
+if [ -z "$MODEL_DIR" ];then
+    MODEL_DIR="/mnt/llm/llm_perf/hf_models/llama-${MODEL_SIZE}b-hf"
 fi
 
 function check_server_status() {
     if [ "$BACKEND" == "vllm" ]; then
-        CMD="python $PERF_BASE_PATH/python/check_server_status.py --server-url $SERVER_URL --backend vllm --model $PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+        CMD="python $PERF_BASE_PATH/python/check_server_status.py --server-url $SERVER_URL --backend vllm --model ${MODEL_DIR}"
         status=$(eval "$CMD")
     elif [ "$BACKEND" == "ppl" ]; then
         CMD="python $PERF_BASE_PATH/python/check_server_status.py --server-url $SERVER_URL --backend ppl"

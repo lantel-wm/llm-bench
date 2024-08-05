@@ -46,14 +46,14 @@ fi
 # 安装不同版本的vllm
 case $PARAM in
   "11")
-    BENCHMARK_LLM="$SCRIPT_DIR/python/benchmark_latency_old_version.py"
+    # BENCHMARK_LLM="$SCRIPT_DIR/python/benchmark_latency_old_version.py"
     echo "[INFO] Installing vllm==0.4.2 for CUDA 11..."
     # pip install -r requirements_vllm042.txt
     pip install https://github.com/vllm-project/vllm/releases/download/v0.4.2/vllm-0.4.2+cu118-cp39-cp39-manylinux1_x86_64.whl --extra-index-url https://download.pytorch.org/whl/cu118 
     pip install flash_attn==2.5.8
     ;;
   "12")
-    BENCHMARK_LLM="$SCRIPT_DIR/python/benchmark_latency.py"
+    # BENCHMARK_LLM="$SCRIPT_DIR/python/benchmark_latency.py"
     echo "[INFO] Installing vllm==0.4.3 for CUDA 12..."
     # pip install -r requirements_vllm043.txt
     pip install vllm==0.4.3

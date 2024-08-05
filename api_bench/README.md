@@ -10,28 +10,26 @@ wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/r
 wget https://raw.githubusercontent.com/openppl-public/ppl.llm.serving/master/tools/samples_1024.json
 ```
 
-设置环境变量：
+在`env_setup.sh`中设置环境变量：
 ```shell
-export SERVER_URL=http://10.198.31.25:8000 # vllm
-export SERVER_URL=127.0.0.1:23333 # ppl
-export BENCHMARK_LLM=${REPO_PATH}/api_bench/python/benchmark_serving.py
-export DATASET_PATH=${REPO_PATH}/api_bench/datasets/ShareGPT_V3_unfiltered_cleaned_split.json
-# 或
-export DATASET_PATH=${REPO_PATH}/api_bench/datasets/samples_1024.json
-export BACKEND=vllm
-# 或
-export BACKEND=ppl
+export BENCHMARK_LLM="$PERF_BASE_PATH/python/benchmark_serving_num_clients.py"
+export DATASET_PATH="$PERF_BASE_PATH/datasets/samples_1024.json"
+export OPMX_MODEL_PATH="/mnt/llm/llm_perf/opmx_models"
+export HF_MODEL_PATH="/mnt/llm/llm_perf/hf_models"
+export PPL_SERVER_URL="127.0.0.1:23333"
+export VLLM_SERVER_URL="http://127.0.0.1:8000"
 ```
-
-若要测试PPL动态性能要需要准备opmx格式的权重，设置`OPMX_MODEL_PATH`环境变量：
+然后执行`env_setup.sh`：
 ```shell
-export OPMX_MODEL_PATH=/path/to/your/model/opmx_models
+source env_setup.sh
 ```
 
 ## 测试启动
 
 ```shell
-bash benchmark_all_cuda.sh BACKEND
+bash benchmark_all_cuda.sh vllm
+# or
+bash benchmark_all_cuda.sh ppl
 ```
 
 ## 使用Python测试单个case
@@ -45,7 +43,7 @@ python -m vllm.entrypoints.openai.api_server --model PATH_TO_MODEL --swap-space 
 
 启动 client，开始benchmark：
 ```shell
-python python/benchmark_serving.py --host YOUR_IP_ADDRESS --port 8000 --model PATH_TO_MODEL --dataset-name sharegpt --dataset-path ./ShareGPT_V3_unfiltered_cleaned_split.json --num-prompt 200 --thread-num 48 --disable-tqdm --thread-stop-time 300
+python python/benchmark_serving_num_clients.py --host YOUR_IP_ADDRESS --port 8000 --model PATH_TO_MODEL --dataset-name sharegpt --dataset-path ./ShareGPT_V3_unfiltered_cleaned_split.json --num-prompt 200 --thread-num 48 --disable-tqdm --thread-stop-time 300
 ```
 
 ### PPL

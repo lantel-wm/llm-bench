@@ -5,7 +5,7 @@ PERF_BASE_PATH=$(dirname "$SCRIPT")
 source "$PERF_BASE_PATH/logging.sh"
 
 if [ -z "$VLLM_SERVER_URL" ];then
-    VLLM_SERVER_URL="http://10.198.31.25:8000"
+    VLLM_SERVER_URL="http://127.0.0.1:8000"
     VLLM_SERVER_HOST=$(echo $VLLM_SERVER_URL | sed -E 's|http://([^:/]+).*|\1|')
     VLLM_SERVER_PORT=$(echo $VLLM_SERVER_URL | sed -E 's|.*:([0-9]+)|\1|')
 fi
@@ -29,7 +29,12 @@ if [ -z "$CLIENTS" ]; then
     CLIENTS=1
 fi
 
-MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
+if [ -z "$HF_MODEL_PATH" ]; then
+    HF_MODEL_PATH="/mnt/llm/llm_perf/hf_models"
+fi
+
+# CHANGE MODEL_DIR ACCORDINGLY
+MODEL_DIR="${HF_MODEL_PATH}/llama-${MODEL_SIZE}b-hf"
 
 # python -m vllm.entrypoints.openai.api_server --model /mnt/llm2/llm_perf/hf_models/llama-7b-hf --swap-space 16 --disable-log-requests --enforce-eager --host 10.198.31.25  --port 8000
 

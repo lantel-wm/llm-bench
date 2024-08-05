@@ -35,16 +35,17 @@ fi
 # MODEL_DIR="$PERF_BASE_PATH/../../hf_models/llama-${MODEL_SIZE}b-hf"
 
 if [ -z "$OPMX_MODEL_PATH" ]; then
-    OPMX_MODEL_PATH="/mnt/llm/LLaMA/test/opmx_models"
+    OPMX_MODEL_PATH="/mnt/llm/llm_perf/opmx_models"
 fi
 
-MODEL_DIR="${OPMX_MODEL_PATH}/${MODEL_SIZE}B_db1_fq1_fk1_ff1_ac1_qc1_cm0_cl3_${TP_SIZE}gpu"
+# CHANGE MODEL_DIR ACCORDINGLY
+MODEL_DIR="${OPMX_MODEL_PATH}/llama_${MODEL_SIZE}b_${TP_SIZE}gpu"
 
 
 CMD="nohup ${PPL_SERVER_PATH} \
 --model-dir ${MODEL_DIR} \
 --model-param-path ${MODEL_DIR}/params.json \
---tokenizer-path /mnt/llm/LLaMA/tokenizer.model \
+--tokenizer-path /mnt/llm/llama-${MODEL_SIZE}b-hf/tokenizer.model \
 --tensor-parallel-size ${TP_SIZE} \
 --top-p 0.0 \
 --top-k 1 \
